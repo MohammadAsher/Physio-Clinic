@@ -12,6 +12,7 @@ import LandingPage from '@/components/LandingPage';
 import LoginPage from '@/components/LoginPage';
 import PatientDashboard from '@/components/PatientDashboard';
 import DoctorDashboardNew from '@/components/DoctorDashboardNew';
+import AdminDashboard from '@/components/AdminDashboard';
 
 type AuthView = 'landing' | 'login' | 'signup';
 
@@ -31,6 +32,7 @@ export default function Home() {
   const [authView, setAuthView] = useState<AuthView>('landing');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [patients, setPatients] = useState<FirestorePatient[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -111,7 +113,32 @@ export default function Home() {
 
       return () => unsubscribe();
     }
-  }, [currentUser?.role, currentUser?.id]);
+   }, [currentUser?.role, currentUser?.id]);
+
+  useEffect(() => {
+    if (currentUser?.role === 'admin') {
+      const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+        const fetchedUsers: User[] = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name || '',
+            email: data.email || '',
+            phone: data.phone || '',
+            role: data.role || 'patient',
+            avatar: data.avatar,
+            createdAt: data.createdAt?.toDate() || new Date(),
+            status: data.status,
+            assignedDoctorId: data.assignedDoctorId,
+            assignedDoctorName: data.assignedDoctorName,
+          };
+        });
+        setUsers(fetchedUsers);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [currentUser?.role]);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -126,6 +153,7 @@ export default function Home() {
     setCurrentUser(null);
     setAuthView('landing');
     setPatients([]);
+    setUsers([]);
   };
 
   const handleUpdatePatientStatus = async (patientId: string, status: string, assignedDoctorId?: string, assignedDoctorName?: string) => {
@@ -137,6 +165,14 @@ export default function Home() {
       });
     } catch (err) {
       console.error('Error updating patient status:', err);
+    }
+  };
+
+  const handleAssignRole = async (userId: string, role: 'patient' | 'doctor') => {
+    try {
+      await updateDoc(doc(db, 'users', userId), { role });
+    } catch (err) {
+      console.error('Error assigning role:', err);
     }
   };
 
@@ -174,19 +210,25 @@ export default function Home() {
             />
           )}
         </motion.div>
-      ) : currentUser.role === 'patient' ? (
-        <PatientDashboard
-          user={currentUser}
-          onLogout={handleLogout}
-        />
-      ) : (
-        <DoctorDashboardNew
-  user={currentUser}
-patients={patients as any} // @ts-ignore
-onUpdatePatient={handleUpdatePatientStatus}
-  onLogout={handleLogout}
-/>
-      )}
+        ) : currentUser.role === 'admin' ? (
+          <AdminDashboard
+            users={users}
+            onAssignRole={handleAssignRole}
+            onLogout={handleLogout}
+          />
+        ) : currentUser.role === 'patient' ? (
+         <PatientDashboard
+           user={currentUser}
+           onLogout={handleLogout}
+         />
+       ) : (
+         <DoctorDashboardNew
+           user={currentUser}
+           patients={patients as any} // @ts-ignore
+           onUpdatePatient={handleUpdatePatientStatus}
+           onLogout={handleLogout}
+         />
+       )}
     </AnimatePresence>
   );
 }

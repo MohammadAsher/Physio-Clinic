@@ -43,14 +43,14 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-slate-950">
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -61,18 +61,18 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
         animate={{
           x: sidebarOpen ? 0 : -280,
         }}
-        className="fixed lg:static inset-y-0 left-0 z-50 w-72 glass-card border-r-0 border-y-0 border-l-0 rounded-none flex flex-col"
+        className="fixed lg:static inset-y-0 left-0 z-50 w-72 glass-card border-r border-white/10 rounded-none flex flex-col bg-black/20"
       >
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full premium-gradient flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full premium-gradient flex items-center justify-center shadow-lg shadow-blue-500/20">
               <span className="text-white font-bold text-lg">
                 {user.name.charAt(0).toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-white font-semibold truncate">{user.name}</p>
-              <p className="text-slate-400 text-sm">Patient</p>
+              <p className="text-slate-400 text-sm">Patient Profile</p>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -95,7 +95,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                 activeView === item.id
-                  ? 'premium-gradient text-white'
+                  ? 'premium-gradient text-white shadow-lg shadow-blue-500/30'
                   : 'text-slate-400 hover:text-white hover:bg-white/5'
               }`}
             >
@@ -110,7 +110,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all"
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:text-white hover:bg-red-500 transition-all border border-red-500/20"
           >
             <LogOut className="w-5 h-5" />
             <span className="font-medium">Logout</span>
@@ -119,63 +119,72 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
       </motion.aside>
 
       <div className="flex-1 flex flex-col min-h-screen">
-        <header className="glass-card border-t-0 border-x-0 rounded-none px-6 py-4 flex items-center justify-between">
+        <header className="glass-card border-t-0 border-x-0 rounded-none px-6 py-4 flex items-center justify-between bg-black/10">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
           >
             <Menu className="w-6 h-6 text-slate-400" />
           </button>
-          <h1 className="text-xl font-bold text-gradient lg:hidden">
-            Physio Clinic
+          
+          <h1 className="text-xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+            {navItems.find(i => i.id === activeView)?.label}
           </h1>
-          <div className="w-10" />
+
+          <div className="flex items-center gap-2">
+            {/* Header Logout for Mobile/Tablet */}
+            <button 
+              onClick={onLogout}
+              className="p-2 hover:bg-red-500/10 rounded-lg group transition-all"
+              title="Logout"
+            >
+              <LogOut className="w-5 h-5 text-slate-500 group-hover:text-red-400" />
+            </button>
+          </div>
         </header>
 
-        {isAssigned && (
+        {isAssigned ? (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mx-6 mt-4 glass-card p-4 bg-gradient-to-r from-sky-500/20 to-blue-500/20 border border-sky-500/30"
+            className="mx-6 mt-4 glass-card p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full sky-gradient flex items-center justify-center">
+              <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center">
                 <UserCheck className="w-5 h-5 text-white" />
               </div>
               <div>
-                <p className="text-slate-400 text-sm">Your assigned Physiotherapist</p>
+                <p className="text-slate-400 text-xs uppercase tracking-wider font-bold">Assigned Specialist</p>
                 <p className="text-white font-semibold text-lg">{user.assignedDoctorName}</p>
               </div>
             </div>
           </motion.div>
-        )}
-
-        {!isAssigned && (
+        ) : (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mx-6 mt-4 glass-card p-4 bg-amber-500/10 border border-amber-500/30"
+            className="mx-6 mt-4 glass-card p-4 bg-amber-500/5 border border-amber-500/20"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full amber-gradient flex items-center justify-center">
-                <UserCheck className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                <UserCheck className="w-5 h-5 text-amber-500" />
               </div>
               <div>
-                <p className="text-white font-semibold">Waiting for Assignment</p>
-                <p className="text-slate-400 text-sm">A physiotherapist will be assigned to you soon.</p>
+                <p className="text-amber-500 font-semibold uppercase text-xs tracking-widest">Status: Queue</p>
+                <p className="text-slate-400 text-sm">Assigning a physiotherapist shortly...</p>
               </div>
             </div>
           </motion.div>
         )}
 
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-6 overflow-x-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeView}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
             >
               {renderContent()}
             </motion.div>
