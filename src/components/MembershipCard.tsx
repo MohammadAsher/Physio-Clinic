@@ -89,7 +89,7 @@ export default function MembershipCard({ patient, onUpgradeToMember, onClose }: 
           style={{ rotateX, rotateY }}
           className="relative"
         >
-          <div className={`glass-card p-6 bg-gradient-to-br ${membershipTypes[membership.type].color} relative overflow-hidden`}>
+          <div className={`glass-card p-6 bg-gradient-to-br ${membershipTypes[membership.type as keyof typeof membershipTypes].color} relative overflow-hidden`}>
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
 
@@ -97,8 +97,8 @@ export default function MembershipCard({ patient, onUpgradeToMember, onClose }: 
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-2">
                   <Crown className="w-6 h-6 text-white" />
-                  <span className="text-white font-semibold text-lg">{membershipTypes[membership.type].name} Member</span>
-                </div>
+                   <span className="text-white font-semibold text-lg">{membershipTypes[membership.type as keyof typeof membershipTypes].name} Member</span>       
+                       </div>
                 <Sparkles className="w-6 h-6 text-white/80" />
               </div>
 
