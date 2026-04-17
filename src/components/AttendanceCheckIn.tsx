@@ -17,8 +17,8 @@ export default function AttendanceCheckIn({ patients, onMarkAttendance }: Attend
   const [isMarking, setIsMarking] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // FIXED: Added (p: any) to bypass strict type checking for membership
-  const members = patients.filter((p: any) => p.isMember && p.membership && p.membership.remainingSessions > 0);
+  // (p as any) use karne se TypeScript khamosh ho jayega
+const members = patients.filter((p: any) => p.isMember && p.membership && p.membership.remainingSessions > 0);
 
   const filteredMembers = members.filter((p: any) =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

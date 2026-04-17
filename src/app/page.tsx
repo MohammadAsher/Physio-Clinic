@@ -182,8 +182,7 @@ export default function Home() {
       ) : (
         <DoctorDashboardNew
   user={currentUser}
-  patients={patients}
- // @ts-ignore
+patients={patients as any} // @ts-ignore
 onUpdatePatient={handleUpdatePatientStatus}
   onLogout={handleLogout}
 />

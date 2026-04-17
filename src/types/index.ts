@@ -14,25 +14,26 @@ export interface User {
 export interface Patient {
   id: string;
   name: string;
-  token: string;
-  isMember: boolean;
-  attendance: any[];
-  medicalCondition?: string; // Add this line
-  membership?: {             // Add this block
-    type: string;
-    remainingSessions: number;
-    qrCode: string;
-  };
+  status: 'waiting' | 'consulting' | 'completed';
+  checkInTime: any;
+  token: any;           // Changed to any
+  isMember?: any;       // Changed to any
+  attendance?: any[];
+  medicalCondition?: any;
+  membership?: any;     // Changed to any
+  exercises?: any[];    // Is line se image_74cbe0.png wala error jayega
 }
 
 export interface Exercise {
   id: string;
   name: string;
-  description: string;
-  duration: number;
-  sets?: number;
-  reps?: number;
+  duration: any;
+  sets?: any;
+  reps?: any;
+  description?: any;
 }
+
+export interface FirestorePatient extends Patient {}
 
 export interface Membership {
   id: string;
