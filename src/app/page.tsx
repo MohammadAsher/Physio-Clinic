@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, collection, onSnapshot, updateDoc, query, where } from 'firebase/firestore';
+import { doc, getDoc, collection, onSnapshot, updateDoc, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User } from '@/types';
 import { generateToken, generateQRCode } from '@/lib/data';
@@ -22,10 +22,40 @@ interface FirestorePatient {
   name: string;
   phone: string;
   email?: string;
-  status: 'unassigned' | 'assigned';
+  status: 'unassigned' | 'assigned' | 'waiting' | 'consulting' | 'completed';
   assignedDoctorId?: string;
   assignedDoctorName?: string;
   createdAt: Date;
+  isMember?: boolean;
+  membershipStatus?: 'pending' | 'active' | 'expired' | 'pendingApproval' | 'rejected';
+  membershipType?: 'silver' | 'gold' | 'platinum';
+  membershipRequestDate?: Date;
+  patientStatus?: string;
+  submittedTrxID?: string;
+  profileCompleted?: boolean;
+  patientProfile?: {
+    age?: number;
+    gender?: string;
+    medicalHistory?: string;
+    profilePicture?: string;
+  };
+}
+
+interface DoctorData {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: 'doctor';
+  avatar?: string;
+  profileCompleted?: boolean;
+  doctorProfile?: {
+    education?: string;
+    experience?: string;
+    specialization?: string;
+    availableDays?: string[];
+    timings?: string;
+  };
 }
 
 export default function Home() {
@@ -33,6 +63,7 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [patients, setPatients] = useState<FirestorePatient[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [doctors, setDoctors] = useState<DoctorData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -53,6 +84,14 @@ export default function Home() {
               status: userData.status,
               assignedDoctorId: userData.assignedDoctorId,
               assignedDoctorName: userData.assignedDoctorName,
+              isMember: userData.isMember,
+              membershipStatus: userData.membershipStatus,
+              membershipType: userData.membershipType,
+              membershipRequestDate: userData.membershipRequestDate?.toDate(),
+              submittedTrxID: userData.submittedTrxID,
+              profileCompleted: userData.profileCompleted || false,
+              doctorProfile: userData.doctorProfile,
+              patientProfile: userData.patientProfile,
             };
             setCurrentUser(user);
           }
@@ -88,6 +127,10 @@ export default function Home() {
             assignedDoctorId: data.assignedDoctorId,
             assignedDoctorName: data.assignedDoctorName,
             createdAt: data.createdAt?.toDate() || new Date(),
+            isMember: data.isMember,
+            membershipStatus: data.membershipStatus,
+            membershipType: data.membershipType,
+            patientStatus: data.patientStatus,
           };
         });
         setPatients(fetchedPatients);
@@ -107,6 +150,9 @@ export default function Home() {
             status: data.status,
             assignedDoctorId: data.assignedDoctorId,
             assignedDoctorName: data.assignedDoctorName,
+            isMember: data.isMember,
+            membershipStatus: data.membershipStatus,
+            membershipType: data.membershipType,
           } : null);
         }
       });
@@ -131,6 +177,13 @@ export default function Home() {
             status: data.status,
             assignedDoctorId: data.assignedDoctorId,
             assignedDoctorName: data.assignedDoctorName,
+            isMember: data.isMember,
+            membershipStatus: data.membershipStatus,
+            membershipType: data.membershipType,
+            membershipRequestDate: data.membershipRequestDate?.toDate(),
+            submittedTrxID: data.submittedTrxID,
+            profileCompleted: data.profileCompleted,
+            doctorProfile: data.doctorProfile,
           };
         });
         setUsers(fetchedUsers);
@@ -139,6 +192,32 @@ export default function Home() {
       return () => unsubscribe();
     }
   }, [currentUser?.role]);
+
+  useEffect(() => {
+    const doctorsQuery = query(
+      collection(db, 'users'),
+      where('role', '==', 'doctor')
+    );
+    
+    const unsubscribe = onSnapshot(doctorsQuery, (snapshot) => {
+      const fetchedDoctors: DoctorData[] = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          role: 'doctor',
+          avatar: data.avatar,
+          profileCompleted: data.profileCompleted || false,
+          doctorProfile: data.doctorProfile,
+        };
+      });
+      setDoctors(fetchedDoctors);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
@@ -158,11 +237,28 @@ export default function Home() {
 
   const handleUpdatePatientStatus = async (patientId: string, status: string, assignedDoctorId?: string, assignedDoctorName?: string) => {
     try {
-      await updateDoc(doc(db, 'users', patientId), {
-        status,
-        assignedDoctorId: assignedDoctorId || null,
-        assignedDoctorName: assignedDoctorName || null,
-      });
+      const updateData: any = {
+        patientStatus: status,
+      };
+      
+      if (status === 'waiting') {
+        updateData.status = 'assigned';
+      } else if (status === 'consulting' || status === 'completed') {
+        updateData.status = 'assigned';
+        
+        const today = new Date().toISOString().split('T')[0];
+        await addDoc(collection(db, 'attendance'), {
+          userId: patientId,
+          date: today,
+          timestamp: new Date(),
+          role: 'patient'
+        });
+      }
+      
+      if (assignedDoctorId) updateData.assignedDoctorId = assignedDoctorId;
+      if (assignedDoctorName) updateData.assignedDoctorName = assignedDoctorName;
+      
+      await updateDoc(doc(db, 'users', patientId), updateData);
     } catch (err) {
       console.error('Error updating patient status:', err);
     }
@@ -173,6 +269,47 @@ export default function Home() {
       await updateDoc(doc(db, 'users', userId), { role });
     } catch (err) {
       console.error('Error assigning role:', err);
+    }
+  };
+
+  const handleBookAppointment = async (patientId: string, doctorId?: string, doctorName?: string, type: 'general' | 'specific' = 'general') => {
+    try {
+      await addDoc(collection(db, 'appointments'), {
+        patientId,
+        patientName: currentUser?.name || '',
+        doctorId: doctorId || null,
+        doctorName: doctorName || null,
+        date: new Date(),
+        status: 'pending',
+        type,
+        createdAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.error('Error booking appointment:', err);
+    }
+  };
+
+  const handleCompleteDoctorProfile = async (profileData: any) => {
+    if (!currentUser?.id) return;
+    try {
+      await updateDoc(doc(db, 'users', currentUser.id), {
+        doctorProfile: profileData,
+        profileCompleted: true,
+      });
+    } catch (err) {
+      console.error('Error completing profile:', err);
+    }
+  };
+
+  const handleCompletePatientProfile = async (profileData: any) => {
+    if (!currentUser?.id) return;
+    try {
+      await updateDoc(doc(db, 'users', currentUser.id), {
+        patientProfile: profileData,
+        profileCompleted: true,
+      });
+    } catch (err) {
+      console.error('Error completing profile:', err);
     }
   };
 
@@ -188,7 +325,7 @@ export default function Home() {
     );
   }
 
-  return (
+return (
     <AnimatePresence mode="wait">
       {!currentUser ? (
         <motion.div
@@ -201,6 +338,7 @@ export default function Home() {
             <LandingPage
               onLogin={() => setAuthView('login')}
               onSignup={() => setAuthView('signup')}
+              doctors={doctors}
             />
           )}
           {(authView === 'login' || authView === 'signup') && (
@@ -210,27 +348,29 @@ export default function Home() {
             />
           )}
         </motion.div>
-        ) : currentUser.role === 'admin' ? (
+      ) : currentUser.role === 'admin' ? (
           <AdminDashboard
             users={users}
             onAssignRole={handleAssignRole}
             onLogout={handleLogout}
           />
         ) : currentUser.role === 'patient' ? (
-         <PatientDashboard
-           user={currentUser}
-           onLogout={handleLogout}
-         />
-       ) : (
-         <DoctorDashboardNew
-           user={currentUser}
-           patients={patients as any} // @ts-ignore
-           onUpdatePatient={handleUpdatePatientStatus}
-           onLogout={handleLogout}
-         />
-       )}
+          <PatientDashboard
+            user={currentUser}
+            doctors={doctors}
+            onLogout={handleLogout}
+            onBookAppointment={handleBookAppointment}
+            onCompleteProfile={handleCompletePatientProfile}
+          />
+        ) : (
+          <DoctorDashboardNew
+            user={currentUser}
+            patients={patients as any}
+            onUpdatePatient={handleUpdatePatientStatus}
+            onLogout={handleLogout}
+            onCompleteProfile={handleCompleteDoctorProfile}
+          />
+        )}
     </AnimatePresence>
   );
 }
-
-// Final build trigger for Vercel

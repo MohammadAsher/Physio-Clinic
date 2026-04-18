@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Clock, Activity, CheckCircle, ChevronRight, X, Calendar } from 'lucide-react';
+import { Users, Clock, Activity, CheckCircle, ChevronRight, X, Calendar, MapPin } from 'lucide-react';
 import { Patient, User, DoctorView } from '@/types';
 import { EXERCISES } from '@/lib/data';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 
 interface DoctorDashboardProps {
   patients: any[]; 
@@ -15,13 +17,40 @@ interface DoctorDashboardProps {
 
 export default function DoctorDashboard({ user, patients, onUpdatePatient, onLogout }: DoctorDashboardProps) {
   const [activeView, setActiveView] = useState<DoctorView>('waiting');
-  const [selectedPatient, setSelectedPatient] = useState<any | null>(null); // Changed to any
-  const [selectedExercises, setSelectedExercises] = useState<any[]>([]); // Changed to any[]
+  const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
+  const [selectedExercises, setSelectedExercises] = useState<any[]>([]);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
+  const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
 
-  // Filter patients based on status
-  const waitingPatients = patients.filter(p => p.status === 'waiting');
-  const consultingPatients = patients.filter(p => p.status === 'consulting');
+  const handleDoctorCheckIn = async () => {
+    if (!user?.id) return;
+    setIsCheckingIn(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const attendanceRef = collection(db, 'attendance');
+      const q = query(attendanceRef, where('userId', '==', user.id), where('date', '==', today));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        await addDoc(attendanceRef, {
+          userId: user.id,
+          date: today,
+          timestamp: new Date(),
+          role: 'doctor'
+        });
+        setIsCheckedIn(true);
+      } else {
+        setIsCheckedIn(true);
+      }
+    } catch (err) {
+      console.error('Error checking in:', err);
+    }
+    setIsCheckingIn(false);
+  };
+
+  const waitingPatients = patients.filter(p => p.status === 'waiting' || p.status === 'assigned' || p.patientStatus === 'waiting');
+  const consultingPatients = patients.filter(p => p.status === 'consulting' || p.patientStatus === 'consulting');
 
   const handleSelectPatient = (patient: any) => {
     setSelectedPatient(patient);
@@ -98,7 +127,24 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
         </nav>
 
         <div className="p-4 border-t border-white/10">
-          <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
+          {isCheckedIn ? (
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-500/20 text-emerald-400">
+              <MapPin className="w-5 h-5" />
+              <span className="font-medium">Checked In</span>
+            </div>
+          ) : (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleDoctorCheckIn}
+              disabled={isCheckingIn}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all"
+            >
+              <MapPin className="w-5 h-5" />
+              <span className="font-medium">{isCheckingIn ? 'Checking in...' : 'Check In'}</span>
+            </motion.button>
+          )}
+          <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all mt-2">
             <span>Logout</span>
           </button>
         </div>

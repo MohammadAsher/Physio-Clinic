@@ -2,7 +2,30 @@
 
 import { useRef } from 'react';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
-import { Activity, Heart, Brain, Baby, Dumbbell, ArrowRight, CheckCircle } from 'lucide-react';
+import { Activity, Heart, Brain, Baby, Dumbbell, ArrowRight, CheckCircle, Clock, Calendar } from 'lucide-react';
+
+interface DoctorData {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: 'doctor';
+  avatar?: string;
+  profileCompleted?: boolean;
+  doctorProfile?: {
+    education?: string;
+    experience?: string;
+    specialization?: string;
+    availableDays?: string[];
+    timings?: string;
+  };
+}
+
+interface LandingPageProps {
+  onLogin: () => void;
+  onSignup: () => void;
+  doctors?: DoctorData[];
+}
 
 const services = [
   {
@@ -42,6 +65,99 @@ const serviceIcons: Record<string, React.ReactNode> = {
   baby: <Baby className="w-8 h-8" />,
 };
 
+const DUMMY_DOCTORS: DoctorData[] = [
+  {
+    id: 'dummy1',
+    name: 'Dr. Sarah Ahmed',
+    email: 'sarah@physio.com',
+    phone: '+1234567890',
+    role: 'doctor',
+    profileCompleted: true,
+    doctorProfile: {
+      education: 'PhD in Physical Therapy, Harvard University',
+      experience: '15 years',
+      specialization: 'Sports Rehabilitation',
+      availableDays: ['Monday', 'Wednesday', 'Friday'],
+      timings: '9:00 AM - 5:00 PM',
+    },
+  },
+  {
+    id: 'dummy2',
+    name: 'Dr. Muhammad Ali',
+    email: 'ali@physio.com',
+    phone: '+1234567891',
+    role: 'doctor',
+    profileCompleted: true,
+    doctorProfile: {
+      education: 'Masters in Orthopedic Physio, AKU',
+      experience: '12 years',
+      specialization: 'Orthopedic Therapy',
+      availableDays: ['Tuesday', 'Thursday', 'Saturday'],
+      timings: '10:00 AM - 6:00 PM',
+    },
+  },
+  {
+    id: 'dummy3',
+    name: 'Dr. Fatima Khan',
+    email: 'fatima@physio.com',
+    phone: '+1234567892',
+    role: 'doctor',
+    profileCompleted: true,
+    doctorProfile: {
+      education: 'Neurological PT Specialist, UCLA',
+      experience: '10 years',
+      specialization: 'Neurological Rehab',
+      availableDays: ['Monday', 'Tuesday', 'Thursday'],
+      timings: '8:00 AM - 4:00 PM',
+    },
+  },
+  {
+    id: 'dummy4',
+    name: 'Dr. Ahmed Raza',
+    email: 'ahmed@physio.com',
+    phone: '+1234567893',
+    role: 'doctor',
+    profileCompleted: true,
+    doctorProfile: {
+      education: 'Sports PT Certification, UK',
+      experience: '8 years',
+      specialization: 'Sports Injuries',
+      availableDays: ['Wednesday', 'Friday', 'Saturday'],
+      timings: '11:00 AM - 7:00 PM',
+    },
+  },
+  {
+    id: 'dummy5',
+    name: 'Dr. Aisha Malik',
+    email: 'aisha@physio.com',
+    phone: '+1234567894',
+    role: 'doctor',
+    profileCompleted: true,
+    doctorProfile: {
+      education: 'Pediatric PT Specialist, Canada',
+      experience: '6 years',
+      specialization: 'Pediatric Care',
+      availableDays: ['Monday', 'Tuesday', 'Wednesday'],
+      timings: '9:00 AM - 3:00 PM',
+    },
+  },
+  {
+    id: 'dummy6',
+    name: 'Dr. Omar Sheikh',
+    email: 'omar@physio.com',
+    phone: '+1234567895',
+    role: 'doctor',
+    profileCompleted: true,
+    doctorProfile: {
+      education: 'Manual Therapy Expert, Germany',
+      experience: '20 years',
+      specialization: 'Manual Therapy',
+      availableDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+      timings: '8:00 AM - 8:00 PM',
+    },
+  },
+];
+
 interface SectionProps {
   children: React.ReactNode;
   className?: string;
@@ -69,7 +185,7 @@ interface HeroSectionProps {
   onSignup: () => void;
 }
 
-function HeroSection({ onLogin, onSignup }: HeroSectionProps) {
+function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctors?: DoctorData[] }) {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -78,6 +194,8 @@ function HeroSection({ onLogin, onSignup }: HeroSectionProps) {
 
   const y = useTransform(scrollYProgress, [0, 1], [0, 200]);
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+
+  const displayedDoctors = doctors && doctors.length > 0 ? doctors : DUMMY_DOCTORS;
 
   return (
     <section ref={ref} className="relative min-h-screen flex items-center justify-center overflow-hidden">
@@ -276,6 +394,49 @@ function ServicesSection() {
   );
 }
 
+function WhyChooseUsSection() {
+  const benefits = [
+    { title: 'Expert Therapists', description: 'Certified professionals with years of experience in specialized physiotherapy.' },
+    { title: 'Personalized Care', description: 'Tailored treatment plans designed specifically for your unique condition.' },
+    { title: 'Modern Facilities', description: 'State-of-the-art equipment and comfortable treatment rooms.' },
+    { title: 'Flexible Scheduling', description: 'Appointment times that fit your busy lifestyle.' },
+  ];
+
+  return (
+    <Section className="py-20 px-4">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-12">
+          <h2 className="text-4xl font-bold text-white mb-4">
+            Why Choose <span className="text-gradient">Us</span>
+          </h2>
+          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+            Experience the difference of quality healthcare
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {benefits.map((benefit, index) => (
+            <motion.div
+              key={benefit.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1, duration: 0.5 }}
+              viewport={{ once: true }}
+              className="glass-card p-6 text-center"
+            >
+              <div className="w-12 h-12 mx-auto mb-4 rounded-xl red-gradient flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">{benefit.title}</h3>
+              <p className="text-slate-400 text-sm">{benefit.description}</p>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 function CTASection({ onSignup }: { onSignup: () => void }) {
   return (
     <Section className="py-20 px-4">
@@ -338,14 +499,61 @@ interface LandingPageProps {
   onSignup: () => void;
 }
 
-export default function LandingPage({ onLogin, onSignup }: LandingPageProps) {
+export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageProps) {
+  const displayedDoctors = doctors && doctors.length > 0 ? doctors : DUMMY_DOCTORS;
+
   return (
-    <div className="min-h-screen">
-      <HeroSection onLogin={onLogin} onSignup={onSignup} />
-      <WhatIsPhysiotherapySection />
+    <div className="min-h-screen bg-slate-950">
+      <HeroSection onLogin={onLogin} onSignup={onSignup} doctors={displayedDoctors} />
+
       <ServicesSection />
+      
+      <WhyChooseUsSection />
       <CTASection onSignup={onSignup} />
-      <Footer />
+
+      <div className="py-20 px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-6xl mx-auto"
+        >
+          <h2 className="text-4xl font-bold text-gradient text-center mb-4">Our Expert Doctors</h2>
+          <p className="text-slate-400 text-center mb-12">Meet our team of specialized physiotherapists</p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {displayedDoctors.slice(0, 6).map((doctor, index) => (
+              <motion.div
+                key={doctor.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="glass-card p-6 rounded-2xl hover:scale-105 transition-transform"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-16 h-16 rounded-full premium-gradient flex items-center justify-center">
+                    <span className="text-white font-bold text-xl">
+                      {doctor.name.split(' ')[1]?.charAt(0) || doctor.name.charAt(0)}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-white font-semibold text-lg">{doctor.name}</h3>
+                    <p className="text-primary text-sm">{doctor.doctorProfile?.specialization}</p>
+                  </div>
+                </div>
+                <p className="text-slate-400 text-sm mb-3">{doctor.doctorProfile?.education}</p>
+                <div className="flex items-center gap-2 text-slate-500 text-sm mb-2">
+                  <Clock className="w-4 h-4" />
+                  <span>{doctor.doctorProfile?.timings}</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-500 text-sm">
+                  <Calendar className="w-4 h-4" />
+                  <span>{doctor.doctorProfile?.availableDays?.join(', ')}</span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 }

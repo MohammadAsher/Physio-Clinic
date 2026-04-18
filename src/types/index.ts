@@ -9,6 +9,37 @@ export interface User {
   status?: 'unassigned' | 'assigned';
   assignedDoctorId?: string;
   assignedDoctorName?: string;
+  isMember?: boolean;
+  membershipStatus?: 'pending' | 'active' | 'expired' | 'pendingApproval' | 'rejected';
+  membershipType?: 'silver' | 'gold' | 'platinum';
+  membershipRequestDate?: Date;
+  submittedTrxID?: string;
+  profileCompleted?: boolean;
+  doctorProfile?: {
+    education?: string;
+    experience?: string;
+    specialization?: string;
+    availableDays?: string[];
+    timings?: string;
+  };
+  patientProfile?: {
+    age?: number;
+    gender?: string;
+    medicalHistory?: string;
+    profilePicture?: string;
+  };
+  appointments?: Appointment[];
+}
+
+export interface Appointment {
+  id: string;
+  patientId: string;
+  patientName: string;
+  doctorId?: string;
+  doctorName?: string;
+  date: Date;
+  status: 'pending' | 'completed' | 'cancelled';
+  type: 'general' | 'specific';
 }
 
 export interface Patient {
@@ -16,12 +47,12 @@ export interface Patient {
   name: string;
   status: 'waiting' | 'consulting' | 'completed';
   checkInTime: any;
-  token: any;           // Changed to any
-  isMember?: any;       // Changed to any
+  token: any;
+  isMember?: any;
   attendance?: any[];
   medicalCondition?: any;
-  membership?: any;     // Changed to any
-  exercises?: any[];    // Is line se image_74cbe0.png wala error jayega
+  membership?: any;
+  exercises?: any[];
 }
 
 export interface Exercise {
@@ -51,6 +82,22 @@ export interface AttendanceRecord {
   notes?: string;
 }
 
+export interface AttendanceLog {
+  id?: string;
+  userId: string;
+  date: string;
+  timestamp: any;
+  role: 'doctor' | 'patient';
+}
+
+export interface PatientReport {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileType: string;
+  uploadedAt: Date;
+}
+
 export interface Milestone {
   id: string;
   name: string;
@@ -70,5 +117,5 @@ export interface Service {
 
 export type AuthView = 'landing' | 'login' | 'signup';
 export type DashboardView = 'patient' | 'doctor';
-export type PatientView = 'overview' | 'exercises' | 'membership' | 'progress';
+export type PatientView = 'overview' | 'exercises' | 'membership' | 'progress' | 'reports';
 export type DoctorView = 'waiting' | 'consultation' | 'patients';

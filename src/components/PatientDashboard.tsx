@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Dumbbell, CreditCard, TrendingUp, LogOut, Menu, X, UserCheck } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, CreditCard, TrendingUp, LogOut, Menu, X, UserCheck, FileText, Upload, Image, File, Copy, Check, Sparkles, Crown, UserPlus } from 'lucide-react';
 import { User, PatientView } from '@/types';
 import PatientOverview from './PatientOverview';
 import PatientExercises from './PatientExercises';
 import PatientMembership from './PatientMembership';
 import PatientProgress from './PatientProgress';
+import { db, storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { collection, addDoc, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 
 interface PatientDashboardProps {
   user: User;
@@ -19,24 +22,204 @@ const navItems: { id: PatientView; label: string; icon: React.ReactNode }[] = [
   { id: 'exercises', label: 'Exercises', icon: <Dumbbell className="w-5 h-5" /> },
   { id: 'membership', label: 'Membership', icon: <CreditCard className="w-5 h-5" /> },
   { id: 'progress', label: 'Progress', icon: <TrendingUp className="w-5 h-5" /> },
+  { id: 'reports', label: 'Reports', icon: <FileText className="w-5 h-5" /> },
 ];
 
 export default function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
   const [activeView, setActiveView] = useState<PatientView>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [reports, setReports] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [trxId, setTrxId] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileData, setProfileData] = useState({
+    age: user?.patientProfile?.age || '',
+    gender: user?.patientProfile?.gender || '',
+    medicalHistory: user?.patientProfile?.medicalHistory || '',
+  });
 
   const isAssigned = user.status === 'assigned' && user.assignedDoctorName;
+  const isMember = user.isMember && user.membershipStatus === 'active';
+  const isPendingApproval = user.membershipStatus === 'pendingApproval';
+  const isProfileComplete = user?.profileCompleted && user?.patientProfile?.age;
+
+  useEffect(() => {
+    if (user?.id) {
+      const unsubscribe = onSnapshot(collection(db, 'users', user.id, 'reports'), (snapshot) => {
+        const fetchedReports = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          uploadedAt: doc.data().uploadedAt?.toDate()
+        }));
+        setReports(fetchedReports);
+      });
+      return () => unsubscribe();
+    }
+  }, [user?.id]);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+    
+    setUploading(true);
+    try {
+      const fileRef = ref(storage, `reports/${user.id}/${Date.now()}_${file.name}`);
+      await uploadBytes(fileRef, file);
+      const downloadUrl = await getDownloadURL(fileRef);
+      
+      const fileType = file.type.startsWith('image/') ? 'image' : 'pdf';
+      
+      await addDoc(collection(db, 'users', user.id, 'reports'), {
+        fileName: file.name,
+        fileUrl: downloadUrl,
+        fileType,
+        uploadedAt: new Date()
+      });
+    } catch (err) {
+      console.error('Error uploading file:', err);
+    }
+    setUploading(false);
+  };
+
+  const handleSubmitMembershipRequest = async () => {
+    if (!trxId.trim() || !user?.id) return;
+    
+    setSubmitting(true);
+    try {
+      await updateDoc(doc(db, 'users', user.id), {
+        membershipStatus: 'pendingApproval',
+        submittedTrxID: trxId.trim(),
+        membershipRequestDate: new Date()
+      });
+      setRequestSent(true);
+      setTimeout(() => {
+        setShowMembershipModal(false);
+        setRequestSent(false);
+        setTrxId('');
+      }, 2000);
+    } catch (err) {
+      console.error('Error submitting membership request:', err);
+    }
+    setSubmitting(false);
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText('0000-0000-0000');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSavePatientProfile = async () => {
+    if (!user?.id) return;
+    setSavingProfile(true);
+    try {
+      await updateDoc(doc(db, 'users', user.id), {
+        profileCompleted: true,
+        patientProfile: {
+          age: Number(profileData.age),
+          gender: profileData.gender,
+          medicalHistory: profileData.medicalHistory,
+        },
+      });
+      setShowProfileModal(false);
+    } catch (err) {
+      console.error('Error saving profile:', err);
+    }
+    setSavingProfile(false);
+  };
 
   const renderContent = () => {
     switch (activeView) {
       case 'overview':
-        return <PatientOverview user={user} />;
+        return (
+          <div>
+            {!isProfileComplete && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowProfileModal(true)}
+                className="w-full mb-6 px-6 py-4 rounded-xl premium-gradient text-white font-semibold flex items-center justify-center gap-3 shadow-lg shadow-blue-500/30"
+              >
+                <UserPlus className="w-5 h-5" />
+                <span>Complete Your Profile</span>
+              </motion.button>
+            )}
+            <PatientOverview 
+              user={user} 
+              onUpgradeClick={() => setShowMembershipModal(true)} 
+              isMember={isMember}
+              isPendingApproval={isPendingApproval}
+            />
+          </div>
+        );
       case 'exercises':
         return <PatientExercises patient={null} />;
       case 'membership':
         return <PatientMembership patient={null} />;
       case 'progress':
         return <PatientProgress patient={null} />;
+      case 'reports':
+        return (
+          <div className="space-y-6">
+            <div className="glass-card p-6">
+              <h2 className="text-xl font-semibold text-white mb-4">Upload Medical Reports</h2>
+              <p className="text-slate-400 text-sm mb-4">Upload PDF or images (MRI, X-rays) for your doctor to view</p>
+              <label className="flex items-center justify-center w-full p-8 border-2 border-dashed border-white/20 rounded-xl cursor-pointer hover:border-primary/50 transition-colors">
+                <input type="file" accept="image/*,.pdf" onChange={handleUpload} className="hidden" disabled={uploading} />
+                <div className="text-center">
+                  <Upload className="w-12 h-12 mx-auto mb-3 text-slate-400" />
+                  <p className="text-slate-300 font-medium">
+                    {uploading ? 'Uploading...' : 'Click to upload files'}
+                  </p>
+                  <p className="text-slate-500 text-sm mt-1">PDF or Images (MRI, X-rays)</p>
+                </div>
+              </label>
+            </div>
+            
+            <div className="glass-card p-6">
+              <h2 className="text-xl font-semibold text-white mb-4">Your Reports</h2>
+              {reports.length > 0 ? (
+                <div className="space-y-3">
+                  {reports.map((report) => (
+                    <div key={report.id} className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        {report.fileType === 'image' ? (
+                          <Image className="w-8 h-8 text-primary" />
+                        ) : (
+                          <File className="w-8 h-8 text-red-400" />
+                        )}
+                        <div>
+                          <p className="text-white font-medium">{report.fileName}</p>
+                          <p className="text-slate-400 text-xs">{report.uploadedAt?.toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <a
+                        href={report.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2 rounded-lg bg-primary/20 text-primary text-sm hover:bg-primary/30"
+                      >
+                        View
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-slate-500">
+                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No reports uploaded yet</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -191,6 +374,195 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
           </AnimatePresence>
         </main>
       </div>
+
+      <AnimatePresence>
+        {showMembershipModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMembershipModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="relative w-full max-w-md glass-card p-8 rounded-2xl shadow-2xl"
+            >
+              <button
+                onClick={() => setShowMembershipModal(false)}
+                className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+
+              {requestSent ? (
+                <motion.div
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-center py-8"
+                >
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                    className="w-20 h-20 mx-auto mb-6 rounded-full premium-gradient flex items-center justify-center"
+                  >
+                    <Sparkles className="w-10 h-10 text-white" />
+                  </motion.div>
+                  <h2 className="text-2xl font-bold text-white mb-2">Request Sent!</h2>
+                  <p className="text-slate-400">We'll review your payment and activate your membership shortly.</p>
+                </motion.div>
+              ) : (
+                <>
+                  <div className="text-center mb-6">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="w-16 h-16 mx-auto mb-4 rounded-full premium-gradient flex items-center justify-center"
+                    >
+                      <Crown className="w-8 h-8 text-white" />
+                    </motion.div>
+                    <h2 className="text-2xl font-bold text-gradient">Join the Elite Membership Program</h2>
+                  </div>
+
+                  <p className="text-slate-400 text-sm mb-6">
+                    To activate your membership, please pay the fees at the Clinic Reception or transfer to our bank account below.
+                  </p>
+
+                  <div className="glass-card p-4 rounded-xl mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-slate-400 text-sm">Bank Name</span>
+                      <span className="text-white font-medium">National Bank</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 text-sm">Account Number</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-mono">0000-0000-0000</span>
+                        <button
+                          onClick={copyToClipboard}
+                          className="p-1 hover:bg-white/10 rounded transition-colors"
+                        >
+                          {copied ? (
+                            <Check className="w-4 h-4 text-emerald-400" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-slate-400" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-slate-400 text-sm">Title</span>
+                      <span className="text-white font-medium">Physio Clinic</span>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <label className="text-slate-400 text-sm mb-2 block">Enter Receipt Number or Transaction ID</label>
+                    <input
+                      type="text"
+                      value={trxId}
+                      onChange={(e) => setTrxId(e.target.value)}
+                      placeholder="e.g., TRX123456789"
+                      className="glass-input w-full"
+                    />
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={handleSubmitMembershipRequest}
+                    disabled={!trxId.trim() || submitting}
+                    className="w-full py-4 rounded-xl premium-gradient text-white font-bold shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? 'Submitting...' : 'Submit Request'}
+                  </motion.button>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showProfileModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="glass-card p-6 max-w-lg w-full"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-white">Complete Your Profile</h2>
+                <button
+                  onClick={() => setShowProfileModal(false)}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-slate-400" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-slate-400 text-sm mb-2 block">Age</label>
+                  <input
+                    type="number"
+                    value={profileData.age}
+                    onChange={(e) => setProfileData({ ...profileData, age: e.target.value })}
+                    placeholder="Enter your age"
+                    className="glass-input w-full"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-400 text-sm mb-2 block">Gender</label>
+                  <select
+                    value={profileData.gender}
+                    onChange={(e) => setProfileData({ ...profileData, gender: e.target.value })}
+                    className="glass-input w-full"
+                  >
+                    <option value="">Select gender</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 text-sm mb-2 block">Medical History</label>
+                  <textarea
+                    value={profileData.medicalHistory}
+                    onChange={(e) => setProfileData({ ...profileData, medicalHistory: e.target.value })}
+                    placeholder="List any existing conditions, allergies, or past injuries..."
+                    rows={4}
+                    className="glass-input w-full resize-none"
+                  />
+                </div>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleSavePatientProfile}
+                disabled={savingProfile || !profileData.age || !profileData.gender}
+                className="w-full mt-6 py-3 rounded-xl premium-gradient text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {savingProfile ? 'Saving...' : 'Save Profile'}
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
