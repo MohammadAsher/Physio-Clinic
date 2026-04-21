@@ -22,11 +22,39 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
   const remainingSessions = patient?.membership?.remainingSessions || 5;
   const progress = totalSessions > 0 ? ((totalSessions - remainingSessions) / totalSessions) * 100 : 0;
 
+  const staggerContainer = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.2,
+      },
+    },
+  };
+
+  const slideUpVariant = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        type: 'spring',
+        stiffness: 100,
+        damping: 15,
+      }
+    },
+  };
+
   return (
-    <div className="space-y-6">
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+      className="space-y-6"
+    >
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
+        variants={slideUpVariant}
       >
         <h2 className="text-3xl font-bold text-white mb-2">Welcome back, {user.name.split(' ')[0]}!</h2>
         <p className="text-slate-400">Here's an overview of your physiotherapy journey</p>
@@ -47,10 +75,10 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
         ].map((stat, index) => (
           <motion.div
             key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1, duration: 0.5 }}
-            className="glass-card p-5 hover:scale-[1.02] transition-all duration-300 hover:shadow-[0_0_20px_rgba(225,29,72,0.2)]"
+            variants={slideUpVariant}
+            whileHover={{ scale: 1.02, y: -4 }}
+            whileTap={{ scale: 0.98 }}
+            className="premium-glass p-5 cursor-pointer"
           >
             <div className={`w-12 h-12 rounded-xl ${stat.color === 'red' ? 'red-gradient' : 'blue-gradient'} flex items-center justify-center text-white mb-4 shadow-lg`}>
               {stat.icon}
@@ -69,10 +97,8 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="glass-card p-6"
+          variants={slideUpVariant}
+          className="premium-glass p-6"
         >
           <h3 className="text-xl font-semibold text-white mb-4">Your Progress</h3>
           <div className="relative pt-4">
@@ -92,10 +118,8 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="glass-card p-6"
+          variants={slideUpVariant}
+          className="premium-glass p-6"
         >
           <h3 className="text-xl font-semibold text-white mb-4">Membership Status</h3>
           
@@ -108,8 +132,8 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
                   <span className="text-slate-400">Plan</span>
                   <div className="flex items-center gap-2">
-                    <Crown className="w-4 h-4 text-amber-400" />
-                    <span className="text-amber-400 font-medium">
+                    <Crown className="w-4 h-4 text-gold" />
+                    <span className="text-gold font-medium">
                       {user.totalFees ? `Custom (${user.totalFees.toLocaleString()} PKR)` : (user.membershipType ? user.membershipType.charAt(0).toUpperCase() + user.membershipType.slice(1) : 'None')}
                     </span>
                   </div>
@@ -124,7 +148,7 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
                  whileHover={{ scale: 1.02 }}
                  whileTap={{ scale: 0.98 }}
                  onClick={() => setShowQRModal(true)}
-                  className="flex items-center justify-between p-3 bg-white/5 rounded-xl cursor-pointer hover:shadow-[0_0_30px_rgba(220,38,38,0.3)]"
+                  className="flex items-center justify-between p-3 bg-white/5 rounded-xl cursor-pointer hover:shadow-crimson-glow transition-all"
                >
                  <span className="text-slate-400">QR Code</span>
                  <div className="flex items-center gap-2">
@@ -136,7 +160,7 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
                  whileHover={{ scale: 1.02 }}
                  whileTap={{ scale: 0.98 }}
                  onClick={() => setShowQRModal(true)}
-                  className="mt-4 p-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl border border-blue-500/30 cursor-pointer hover:shadow-[0_0_30px_rgba(220,38,38,0.3)]"
+                  className="mt-4 p-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl border border-blue-500/30 cursor-pointer hover:shadow-crimson-glow transition-all"
                >
                  <div className="flex items-center justify-center">
                    <div className="w-32 h-32 bg-white rounded-xl p-2 flex items-center justify-center">
@@ -146,31 +170,31 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
                  <p className="text-center text-xs text-slate-400 mt-2">Scan to mark attendance</p>
                </motion.div>
              </motion.div>
-            ) : isPendingApproval ? (
-              <div className="text-center py-8">
-                <motion.div
-                  animate={{ scale: [1, 1.1] }}
-                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                  className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center"
-                >
-                  <Clock className="w-8 h-8 text-amber-500" />
-                </motion.div>
-                <p className="text-amber-400 font-semibold mb-2">Pending Approval</p>
-                <p className="text-slate-400 text-sm">Your membership request is being reviewed.</p>
-              </div>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-slate-400 mb-4">You're not a member yet</p>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={onUpgradeClick}
-                className="glass-button blue"
-              >
-                Upgrade to Member
-              </motion.button>
-            </div>
-          )}
+           ) : isPendingApproval ? (
+             <div className="text-center py-8">
+               <motion.div
+                 animate={{ scale: [1, 1.1] }}
+                 transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                 className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center"
+               >
+                 <Clock className="w-8 h-8 text-amber-500" />
+               </motion.div>
+               <p className="text-amber-400 font-semibold mb-2">Pending Approval</p>
+               <p className="text-slate-400 text-sm">Your membership request is being reviewed.</p>
+             </div>
+           ) : (
+             <div className="text-center py-8">
+               <p className="text-slate-400 mb-4">You're not a member yet</p>
+               <motion.button
+                 whileHover={{ scale: 1.02 }}
+                 whileTap={{ scale: 0.98 }}
+                 onClick={onUpgradeClick}
+                 className="glass-button blue"
+               >
+                 Upgrade to Member
+               </motion.button>
+             </div>
+           )}
         </motion.div>
       </div>
 
@@ -217,6 +241,6 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }

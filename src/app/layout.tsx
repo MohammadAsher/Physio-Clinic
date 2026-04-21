@@ -1,5 +1,12 @@
 import type { Metadata } from 'next';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-plus-jakarta',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Body Experts - Premium Physiotherapy',
@@ -12,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="font-sans antialiased">
-      <body>{children}</body>
+    <html lang="en" className={`${plusJakartaSans.variable} font-sans antialiased`}>
+      <body className="font-[family-name:var(--font-plus-jakarta)]">{children}</body>
     </html>
   );
 }

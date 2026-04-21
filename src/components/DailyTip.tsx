@@ -52,12 +52,15 @@ export default function DailyTip({ className = '' }: DailyTipProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`glass-card p-6 ${className}`}
+      className={`premium-glass p-6 ${className}`}
     >
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+        <motion.div
+          whileHover={{ scale: 1.1, rotate: 10 }}
+          className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30"
+        >
           <Lightbulb className="w-5 h-5 text-white" />
-        </div>
+        </motion.div>
         <div>
           <h3 className="text-lg font-semibold text-white">Daily Wellness Tip</h3>
           <p className="text-slate-400 text-xs">Your health, our priority</p>

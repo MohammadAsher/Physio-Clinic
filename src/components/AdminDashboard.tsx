@@ -107,12 +107,40 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
     }
   };
 
+  const staggerContainer = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.1,
+      },
+    },
+  };
+
+  const slideUpVariant = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        type: 'spring',
+        stiffness: 100,
+        damping: 15,
+      }
+    },
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 p-4 md:p-6">
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+      className="min-h-screen bg-slate-950 p-4 md:p-6"
+    >
       <div className="max-w-7xl mx-auto px-4">
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
+          variants={slideUpVariant}
           className="flex items-center justify-between mb-8"
         >
           <div>
@@ -173,10 +201,10 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
           ].map((stat, index) => (
             <motion.div
               key={stat.label}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1, duration: 0.5 }}
-              className="glass-card p-6 hover:scale-[1.02] transition-all duration-300 hover:shadow-[0_0_20px_rgba(225,29,72,0.15)]"
+              variants={slideUpVariant}
+              whileHover={{ scale: 1.02, y: -4 }}
+              whileTap={{ scale: 0.98 }}
+              className="premium-glass p-6 cursor-pointer"
             >
               <div className="flex items-center gap-3 mb-4">
                 <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.accent} flex items-center justify-center text-white shadow-lg`}>
@@ -468,6 +496,6 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
 
         </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }

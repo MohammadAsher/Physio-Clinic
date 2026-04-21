@@ -93,28 +93,39 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
     });
   };
 
-  const containerVariants = {
+  const staggerContainer = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.1,
+      },
+    },
   };
 
-  const itemVariants = {
+  const slideUpVariant = {
     hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 }
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        type: 'spring',
+        stiffness: 100,
+        damping: 15,
+      }
+    },
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
       className="w-full"
     >
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
+        variants={slideUpVariant}
         className="text-center mb-8"
       >
         <h1 className="text-3xl font-bold text-gradient mb-2">Doctor Dashboard</h1>
@@ -123,12 +134,11 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
 
       {!isProfileComplete && (
         <motion.button
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
+          variants={slideUpVariant}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setShowProfileModal(true)}
-          className="w-full mb-6 px-6 py-4 rounded-xl premium-gradient text-white font-semibold flex items-center justify-center gap-3 shadow-lg shadow-blue-500/30"
+          className="w-full mb-6 px-6 py-4 rounded-xl premium-gradient text-white font-semibold flex items-center justify-center gap-3 shadow-lg shadow-crimson-intense"
         >
           <UserPlus className="w-5 h-5" />
           <span>Complete Your Profile</span>
@@ -137,10 +147,8 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="glass-card p-6"
+          variants={staggerContainer}
+          className="premium-glass p-6"
         >
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl premium-gradient flex items-center justify-center">
@@ -157,17 +165,14 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
               {waitingPatients.map((patient) => (
                 <motion.div
                   key={patient.id}
-                  variants={itemVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit={{ opacity: 0, x: -100 }}
-                  whileHover={{ scale: 1.02 }}
+                  variants={slideUpVariant}
+                  whileHover={{ scale: 1.02, y: -4 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleSelectPatient(patient)}
-                  className={`glass-card p-4 cursor-pointer transition-all ${
+                  className={`premium-glass p-4 cursor-pointer ${
                     selectedPatient?.id === patient.id 
                       ? 'ring-2 ring-primary bg-primary/20' 
-                      : 'hover:bg-white/5'
+                      : ''
                   }`}
                 >
                   <div className="flex items-center justify-between">
@@ -194,10 +199,8 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
         </motion.div>
 
         <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="glass-card p-6"
+          variants={staggerContainer}
+          className="premium-glass p-6"
         >
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
@@ -211,11 +214,10 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
 
           {selectedPatient ? (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              variants={slideUpVariant}
               className="space-y-4"
             >
-              <div className="glass-card p-4 bg-primary/10 border-primary/30">
+              <div className="premium-glass p-4 bg-primary/10 border-primary/30">
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <p className="text-white font-semibold text-lg">{selectedPatient.name}</p>
@@ -229,7 +231,6 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
                   </button>
                 </div>
                 
-                {/* FIXED: Added 'as any' to avoid medicalCondition error */}
                 {(selectedPatient as any).medicalCondition && (
                   <div className="mb-4">
                     <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">Condition</p>
@@ -296,7 +297,7 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="glass-card p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
+              className="premium-glass p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-white">Assign Exercises</h2>
@@ -314,11 +315,11 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
                   return (
                     <motion.div
                       key={exercise.id}
-                      whileHover={{ scale: 1.02 }}
+                      whileHover={{ scale: 1.02, y: -4 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => toggleExercise(exercise)}
-                      className={`glass-card p-4 cursor-pointer transition-all ${
-                        isSelected ? 'ring-2 ring-primary bg-primary/20' : 'hover:bg-white/5'
+                      className={`premium-glass p-4 cursor-pointer ${
+                        isSelected ? 'ring-2 ring-primary bg-primary/20' : ''
                       }`}
                     >
                       <div className="flex items-start justify-between">
@@ -338,7 +339,7 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
                 })}
               </div>
 
-              <motion.div className="mt-6 p-4 glass-card bg-primary/10 border-primary/30">
+              <motion.div className="mt-6 p-4 premium-glass bg-primary/10 border-primary/30">
                 <p className="text-slate-300">
                   <span className="text-primary font-medium">{selectedExercises.length}</span> exercises selected
                 </p>
@@ -360,7 +361,7 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="glass-card p-6 max-w-lg w-full"
+              className="premium-glass p-6 max-w-lg w-full"
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-white">Complete Your Profile</h2>
@@ -442,7 +443,7 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSaveProfile}
                 disabled={savingProfile || !profileData.education || !profileData.specialization}
-                className="w-full mt-6 py-3 rounded-xl premium-gradient text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full mt-6 py-3 rounded-xl premium-gradient text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-crimson-intense"
               >
                 {savingProfile ? 'Saving...' : 'Save Profile'}
               </motion.button>

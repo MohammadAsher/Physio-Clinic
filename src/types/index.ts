@@ -122,6 +122,8 @@ export interface PatientReport {
   fileUrl: string;
   fileType: string;
   uploadedAt: Date;
+  uploadedBy?: string;
+  doctorId?: string;
 }
 
 export interface Milestone {
