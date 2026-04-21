@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Clock, Activity, CheckCircle, Crown, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { User, Patient } from '@/types';
+import CounterAnimation from './CounterAnimation';
 
 interface PatientOverviewProps {
   user: User;
@@ -36,21 +37,31 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
           { label: 'Completed Sessions', value: completedSessions, icon: <CheckCircle className="w-6 h-6" />, color: 'red' },
           { label: 'Remaining Sessions', value: remainingSessions, icon: <Calendar className="w-6 h-6" />, color: 'blue' },
           { label: 'Exercises Assigned', value: patient?.exercises?.length || 0, icon: <Activity className="w-6 h-6" />, color: 'red' },
-          { label: 'Total Progress', value: `${Math.round(progress)}%`, icon: <Clock className="w-6 h-6" />, color: 'blue' },
+          { 
+            label: 'Total Progress', 
+            value: `${Math.round(progress)}%`, 
+            icon: <Clock className="w-6 h-6" />, 
+            color: 'blue',
+            isPercentage: true 
+          },
         ].map((stat, index) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 }}
-            className="glass-card p-5"
+            transition={{ delay: index * 0.1, duration: 0.5 }}
+            className="glass-card p-5 hover:scale-[1.02] transition-all duration-300 hover:shadow-[0_0_20px_rgba(225,29,72,0.2)]"
           >
-            <div className={`w-12 h-12 rounded-xl ${stat.color === 'red' ? 'red-gradient' : 'blue-gradient'} flex items-center justify-center text-white mb-4`}>
+            <div className={`w-12 h-12 rounded-xl ${stat.color === 'red' ? 'red-gradient' : 'blue-gradient'} flex items-center justify-center text-white mb-4 shadow-lg`}>
               {stat.icon}
             </div>
             <p className="text-slate-400 text-sm mb-1">{stat.label}</p>
             <p className={`text-2xl font-bold ${stat.color === 'red' ? 'text-primary' : 'text-sky'}`}>
-              {stat.value}
+              {typeof stat.value === 'number' && !stat.isPercentage ? (
+                <CounterAnimation value={stat.value} duration={1.5} />
+              ) : (
+                stat.value
+              )}
             </p>
           </motion.div>
         ))}
@@ -94,13 +105,15 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
                animate={{ scale: 1, opacity: 1 }}
                className="space-y-3"
              >
-               <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                 <span className="text-slate-400">Plan</span>
-                 <div className="flex items-center gap-2">
-                   <Crown className="w-4 h-4 text-amber-400" />
-                   <span className="text-amber-400 font-medium capitalize">{user.membershipType || 'silver'}</span>
-                 </div>
-               </div>
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                  <span className="text-slate-400">Plan</span>
+                  <div className="flex items-center gap-2">
+                    <Crown className="w-4 h-4 text-amber-400" />
+                    <span className="text-amber-400 font-medium">
+                      {user.totalFees ? `Custom (${user.totalFees.toLocaleString()} PKR)` : (user.membershipType ? user.membershipType.charAt(0).toUpperCase() + user.membershipType.slice(1) : 'None')}
+                    </span>
+                  </div>
+                </div>
                <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
                  <span className="text-slate-400">Valid Since</span>
                  <span className="text-white font-medium">
@@ -111,7 +124,7 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
                  whileHover={{ scale: 1.02 }}
                  whileTap={{ scale: 0.98 }}
                  onClick={() => setShowQRModal(true)}
-                 className="flex items-center justify-between p-3 bg-white/5 rounded-xl cursor-pointer"
+                  className="flex items-center justify-between p-3 bg-white/5 rounded-xl cursor-pointer hover:shadow-[0_0_30px_rgba(220,38,38,0.3)]"
                >
                  <span className="text-slate-400">QR Code</span>
                  <div className="flex items-center gap-2">
@@ -123,7 +136,7 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
                  whileHover={{ scale: 1.02 }}
                  whileTap={{ scale: 0.98 }}
                  onClick={() => setShowQRModal(true)}
-                 className="mt-4 p-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl border border-blue-500/30 cursor-pointer"
+                  className="mt-4 p-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl border border-blue-500/30 cursor-pointer hover:shadow-[0_0_30px_rgba(220,38,38,0.3)]"
                >
                  <div className="flex items-center justify-center">
                    <div className="w-32 h-32 bg-white rounded-xl p-2 flex items-center justify-center">
@@ -133,18 +146,18 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
                  <p className="text-center text-xs text-slate-400 mt-2">Scan to mark attendance</p>
                </motion.div>
              </motion.div>
-          ) : isPendingApproval ? (
-            <div className="text-center py-8">
-              <motion.div
-                animate={{ pulse: 2 }}
-                transition={{ repeat: Infinity, duration: 2 }}
-                className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center"
-              >
-                <Clock className="w-8 h-8 text-amber-500" />
-              </motion.div>
-              <p className="text-amber-400 font-semibold mb-2">Pending Approval</p>
-              <p className="text-slate-400 text-sm">Your membership request is being reviewed.</p>
-            </div>
+            ) : isPendingApproval ? (
+              <div className="text-center py-8">
+                <motion.div
+                  animate={{ scale: [1, 1.1] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                  className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center"
+                >
+                  <Clock className="w-8 h-8 text-amber-500" />
+                </motion.div>
+                <p className="text-amber-400 font-semibold mb-2">Pending Approval</p>
+                <p className="text-slate-400 text-sm">Your membership request is being reviewed.</p>
+              </div>
           ) : (
             <div className="text-center py-8">
               <p className="text-slate-400 mb-4">You're not a member yet</p>
@@ -177,7 +190,7 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
             >
               <button
                 onClick={() => setShowQRModal(false)}
-                className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="absolute top-4 right-4 p-2 hover:bg-white/10 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] rounded-lg transition-colors"
               >
                 <X className="w-5 h-5 text-slate-400" />
               </button>
@@ -196,7 +209,7 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setShowQRModal(false)}
-                className="w-full py-3 rounded-xl premium-gradient text-white font-semibold"
+                className="w-full py-3 rounded-xl premium-gradient text-white font-semibold hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)]"
               >
                 Close
               </motion.button>

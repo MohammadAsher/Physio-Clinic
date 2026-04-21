@@ -6,6 +6,8 @@ import { Users, UserCheck, Shield, ArrowRight, X, Check, Clock, FileText, QrCode
 import { db } from '@/lib/firebase';
 import { collection, getDocs, updateDoc, doc, addDoc } from 'firebase/firestore';
 import { User } from '@/types';
+import CounterAnimation from './CounterAnimation';
+import MedicalEmptyState from './MedicalEmptyState';
 
 interface AdminDashboardProps {
   users: User[];
@@ -17,6 +19,7 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [doctors, setDoctors] = useState<User[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [feeInputs, setFeeInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const doctorList = users.filter(u => u.role === 'doctor');
@@ -67,12 +70,14 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
     }
   };
 
-  const handleApproveMembership = async (userId: string) => {
+  const handleApproveMembership = async (userId: string, totalFees: number) => {
+    if (!totalFees || totalFees <= 0) return;
     try {
       await updateDoc(doc(db, 'users', userId), {
         isMember: true,
         membershipStatus: 'active',
-        membershipType: 'silver'
+        membershipType: 'custom',
+        totalFees: totalFees
       });
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 3000);
@@ -103,8 +108,8 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
   };
 
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-slate-950 p-4 md:p-6">
+      <div className="max-w-7xl mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -159,84 +164,38 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
         </AnimatePresence>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="glass-card p-6"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl blue-gradient flex items-center justify-center">
-                <Users className="w-5 h-5 text-white" />
+          {[
+            { label: 'Patients', value: patients.length, icon: <Users className="w-5 h-5" />, color: 'blue', accent: 'from-blue-500 to-cyan-500' },
+            { label: 'Doctors', value: doctors.length, icon: <UserCheck className="w-5 h-5" />, color: 'red', accent: 'from-red-500 to-rose-500' },
+            { label: 'Unassigned', value: unassignedPatients.length, icon: <Clock className="w-5 h-5" />, color: 'amber', accent: 'from-amber-400 to-yellow-500' },
+            { label: 'Pending', value: pendingMembershipRequests.length, icon: <FileText className="w-5 h-5" />, color: 'purple', accent: 'from-purple-500 to-violet-500' },
+            { label: 'Scan QR', value: '', icon: <QrCode className="w-5 h-5" />, color: 'sky', accent: 'from-sky-400 to-blue-500', placeholder: true },
+          ].map((stat, index) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1, duration: 0.5 }}
+              className="glass-card p-6 hover:scale-[1.02] transition-all duration-300 hover:shadow-[0_0_20px_rgba(225,29,72,0.15)]"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.accent} flex items-center justify-center text-white shadow-lg`}>
+                  {stat.icon}
+                </div>
+                <h2 className="text-xl font-semibold text-white">{stat.label}</h2>
               </div>
-              <h2 className="text-xl font-semibold text-white">Patients</h2>
-            </div>
-            <p className="text-4xl font-bold text-sky mb-2">{patients.length}</p>
-            <p className="text-slate-400 text-sm">Registered patients</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="glass-card p-6"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl red-gradient flex items-center justify-center">
-                <UserCheck className="w-5 h-5 text-white" />
-              </div>
-              <h2 className="text-xl font-semibold text-white">Doctors</h2>
-            </div>
-            <p className="text-4xl font-bold text-primary mb-2">{doctors.length}</p>
-            <p className="text-slate-400 text-sm">Active physiotherapists</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="glass-card p-6"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-amber-500" />
-              </div>
-              <h2 className="text-xl font-semibold text-white">Unassigned</h2>
-            </div>
-            <p className="text-4xl font-bold text-amber-500 mb-2">{unassignedPatients.length}</p>
-            <p className="text-slate-400 text-sm">Awaiting assignment</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="glass-card p-6"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                <FileText className="w-5 h-5 text-purple-500" />
-              </div>
-              <h2 className="text-xl font-semibold text-white">Pending</h2>
-            </div>
-            <p className="text-4xl font-bold text-purple-500 mb-2">{pendingMembershipRequests.length}</p>
-            <p className="text-slate-400 text-sm">Membership requests</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="glass-card p-6"
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
-                <QrCode className="w-5 h-5 text-primary" />
-              </div>
-              <h2 className="text-xl font-semibold text-white">Scan QR</h2>
-            </div>
-            <p className="text-xl font-bold text-primary mb-2">Attendance</p>
-            <p className="text-slate-400 text-sm">Scan member QR code</p>
-          </motion.div>
+              <p className="text-4xl font-bold text-sky mb-2">
+                {stat.placeholder ? (
+                  <span className="text-lg bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text text-transparent">Attendance</span>
+                ) : (
+                  <CounterAnimation value={stat.value} duration={2} />
+                )}
+              </p>
+              <p className="text-slate-400 text-sm">
+                {stat.placeholder ? 'Scan member QR code' : `Total ${stat.label.toLowerCase()}`}
+              </p>
+            </motion.div>
+          ))}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -324,41 +283,56 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
                     </div>
                   </div>
                   
-                  {(patient as any).submittedTrxID && (
-                    <div className="mb-3 p-2 bg-amber-500/10 rounded-lg">
-                      <p className="text-amber-400 text-xs mb-1">Transaction ID</p>
-                      <p className="text-white font-mono text-sm">{(patient as any).submittedTrxID}</p>
-                    </div>
-                  )}
-                  
-                  <div className="flex gap-2">
-                    {(patient as any).membershipStatus === 'pendingApproval' ? (
-                      <>
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleApproveMembership(patient.id)}
-                          className="flex-1 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm hover:bg-emerald-500/30 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <Check className="w-4 h-4" />
-                          Approve
-                        </motion.button>
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleRejectMembership(patient.id)}
-                          className="flex-1 px-3 py-2 rounded-lg bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30 transition-colors flex items-center justify-center gap-2"
-                        >
-                          <XCircle className="w-4 h-4" />
-                          Reject
-                        </motion.button>
-                      </>
-                    ) : (
-                      <div className="flex-1 px-3 py-2 rounded-lg bg-amber-500/20 text-amber-400 text-sm text-center">
-                        Awaiting Payment
-                      </div>
-                    )}
-                  </div>
+                   {(patient as any).submittedTrxID && (
+                     <div className="mb-3 p-2 bg-amber-500/10 rounded-lg">
+                       <p className="text-amber-400 text-xs mb-1">Transaction ID</p>
+                       <p className="text-white font-mono text-sm">{(patient as any).submittedTrxID}</p>
+                     </div>
+                   )}
+                   
+                   <div className="flex gap-2 flex-col sm:flex-row">
+                     {(patient as any).membershipStatus === 'pendingApproval' ? (
+                       <>
+                         <div className="flex-1">
+                           <label className="text-slate-400 text-xs mb-1 block">Total Fees Paid (PKR)</label>
+                           <input
+                             type="number"
+                             placeholder="e.g., 15000"
+                             value={feeInputs[patient.id] || ''}
+                             onChange={(e) => setFeeInputs({ ...feeInputs, [patient.id]: e.target.value })}
+                             className="glass-input w-full text-sm py-2"
+                           />
+                         </div>
+                         <motion.button
+                           whileHover={{ scale: 1.05 }}
+                           whileTap={{ scale: 0.95 }}
+                           onClick={() => {
+                             const fee = Number(feeInputs[patient.id]);
+                             if (fee > 0) {
+                               handleApproveMembership(patient.id, fee);
+                             }
+                           }}
+                            className="flex-1 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm hover:bg-emerald-500/30 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors flex items-center justify-center gap-2"
+                         >
+                           <Check className="w-4 h-4" />
+                           Approve
+                         </motion.button>
+                         <motion.button
+                           whileHover={{ scale: 1.05 }}
+                           whileTap={{ scale: 0.95 }}
+                           onClick={() => handleRejectMembership(patient.id)}
+                            className="flex-1 px-3 py-2 rounded-lg bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors flex items-center justify-center gap-2"
+                         >
+                           <XCircle className="w-4 h-4" />
+                           Reject
+                         </motion.button>
+                       </>
+                     ) : (
+                       <div className="flex-1 px-3 py-2 rounded-lg bg-amber-500/20 text-amber-400 text-sm text-center">
+                         Awaiting Payment
+                       </div>
+                     )}
+                   </div>
                 </div>
               ))}
               {pendingMembershipRequests.length === 0 && (
@@ -404,19 +378,19 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleUpdateStatus(patient.id, 'waiting')}
-                    className="flex-1 px-3 py-2 rounded-lg bg-yellow-500/20 text-yellow-400 text-xs hover:bg-yellow-500/30 transition-colors"
+                    className="flex-1 px-3 py-2 rounded-lg bg-yellow-500/20 text-yellow-400 text-xs hover:bg-yellow-500/30 hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors"
                   >
                     Waiting
                   </button>
                   <button
                     onClick={() => handleUpdateStatus(patient.id, 'consulting')}
-                    className="flex-1 px-3 py-2 rounded-lg bg-blue-500/20 text-blue-400 text-xs hover:bg-blue-500/30 transition-colors"
+                    className="flex-1 px-3 py-2 rounded-lg bg-blue-500/20 text-blue-400 text-xs hover:bg-blue-500/30 hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors"
                   >
                     In Consultation
                   </button>
                   <button
                     onClick={() => handleUpdateStatus(patient.id, 'completed')}
-                    className="flex-1 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs hover:bg-emerald-500/30 transition-colors"
+                    className="flex-1 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs hover:bg-emerald-500/30 hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors"
                   >
                     Done
                   </button>
@@ -448,20 +422,20 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
               <motion.div
                 key={user.id}
                 whileHover={{ scale: 1.01 }}
-                className="flex items-center justify-between p-4 bg-white/5 rounded-xl"
+                className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white/5 rounded-xl hover:shadow-[0_0_30px_rgba(220,38,38,0.3)]"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-1 min-w-[200px]">
                   <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center">
                     <span className="text-white font-semibold">
                       {user.name.charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <div>
-                    <p className="text-white font-medium">{user.name}</p>
-                    <p className="text-slate-400 text-sm">{user.email}</p>
+                  <div className="min-w-0">
+                    <p className="text-white font-medium truncate">{user.name}</p>
+                    <p className="text-slate-400 text-sm truncate">{user.email}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                     user.role === 'doctor' 
                       ? 'bg-primary/20 text-primary' 
@@ -474,9 +448,9 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
                   {user.role === 'patient' && (
                     <motion.button
                       whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileTap={{ scale: 0.98 }}
                       onClick={() => onAssignRole(user.id, 'doctor')}
-                      className="px-3 py-1 rounded-lg bg-primary/20 text-primary text-sm hover:bg-primary/30 transition-colors"
+                      className="px-3 py-1 rounded-lg bg-primary/20 text-primary text-sm hover:bg-primary/30 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] transition-colors"
                     >
                       Make Doctor
                     </motion.button>
@@ -485,12 +459,13 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
               </motion.div>
             ))}
             {users.length === 0 && (
-              <div className="text-center py-8 text-slate-500">
-                <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No users registered yet</p>
-              </div>
+              <MedicalEmptyState
+                title="No Users Yet"
+                description="Start by adding your first patient or doctor to the system."
+              />
             )}
           </div>
+
         </motion.div>
       </div>
     </div>

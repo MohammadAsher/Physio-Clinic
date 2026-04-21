@@ -120,35 +120,35 @@ export default function AuthForm({ mode, onSuccess, onSwitchMode, onBack }: Auth
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {mode === 'signup' && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-            >
-              <label className="block text-sm text-slate-300 mb-2">Full Name</label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="glass-input w-full pl-12"
-                  placeholder="Enter your full name"
-                />
-              </div>
-            </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <label className="block text-sm text-slate-300 mb-2">Full Name</label>
+            <div className="flex items-center gap-3 glass-input w-full px-4">
+              <User className="w-5 h-5 text-slate-400 flex-shrink-0" />
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="flex-1 bg-transparent outline-none text-white placeholder:text-slate-400"
+                placeholder="Enter your full name"
+              />
+            </div>
+          </motion.div>
           )}
 
           <div>
             <label className="block text-sm text-slate-300 mb-2">Email Address</label>
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <div className="flex items-center gap-3 glass-input w-full px-4">
+              <Mail className="w-5 h-5 text-slate-400 flex-shrink-0" />
               <input
                 type="email"
                 required
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="glass-input w-full pl-12"
+                className="flex-1 bg-transparent outline-none text-white placeholder:text-slate-400"
                 placeholder="Enter your email"
               />
             </div>
@@ -160,14 +160,14 @@ export default function AuthForm({ mode, onSuccess, onSwitchMode, onBack }: Auth
               animate={{ opacity: 1, y: 0 }}
             >
               <label className="block text-sm text-slate-300 mb-2">Phone Number</label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+              <div className="flex items-center gap-3 glass-input w-full px-4">
+                <Phone className="w-5 h-5 text-slate-400 flex-shrink-0" />
                 <input
                   type="tel"
                   required
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="glass-input w-full pl-12"
+                  className="flex-1 bg-transparent outline-none text-white placeholder:text-slate-400"
                   placeholder="Enter your phone number"
                 />
               </div>
@@ -176,20 +176,20 @@ export default function AuthForm({ mode, onSuccess, onSwitchMode, onBack }: Auth
 
           <div>
             <label className="block text-sm text-slate-300 mb-2">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <div className="flex items-center gap-3 glass-input w-full px-4">
+              <Lock className="w-5 h-5 text-slate-400 flex-shrink-0" />
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="glass-input w-full pl-12 pr-12"
+                className="flex-1 bg-transparent outline-none text-white placeholder:text-slate-400"
                 placeholder="Enter your password"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                className="flex-shrink-0 text-slate-400 hover:text-white transition-colors"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>

@@ -2,7 +2,7 @@
 
 import { useRef } from 'react';
 import { motion, useScroll, useTransform, useInView } from 'framer-motion';
-import { Activity, Heart, Brain, Baby, Dumbbell, ArrowRight, CheckCircle, Clock, Calendar } from 'lucide-react';
+import { Activity, Heart, Brain, Baby, Dumbbell, Bone, ArrowRight, CheckCircle, Clock, Calendar } from 'lucide-react';
 
 interface DoctorData {
   id: string;
@@ -30,39 +30,39 @@ interface LandingPageProps {
 const services = [
   {
     id: 1,
-    title: 'Orthopedic Physio',
-    description: 'Specialized treatment for bone, joint, and muscle injuries. Ideal for post-surgery recovery and fracture rehab.',
-    image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600&h=400&fit=crop',
-    icon: 'bone',
+    title: "Children's Therapy",
+    description: "Gentle, playful therapy techniques to support motor development, improve mobility, and address congenital conditions in children.",
+    image: 'https://images.unsplash.com/photo-1584030373081-f37b4bb6a921?w=600&h=400&fit=crop',
+    icon: 'baby',
   },
   {
     id: 2,
-    title: 'Neurological Physio',
-    description: 'Focused care for Stroke, Parkinson\'s, and Spinal injuries to restore motor functions.',
-    image: 'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=600&h=400&fit=crop',
-    icon: 'brain',
+    title: 'Ortho-Neuro-Sports Physiotherapy',
+    description: 'Comprehensive care covering orthopedic injury recovery, neurological rehabilitation, and sports performance enhancement in one place.',
+    image: 'https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?w=600&h=400&fit=crop',
+    icon: 'activity',
   },
   {
     id: 3,
-    title: 'Sports Physio',
-    description: 'Performance-based recovery for athletes to get back in the game faster and prevent future injuries.',
-    image: 'https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?w=600&h=400&fit=crop',
-    icon: 'dumbbell',
+    title: 'Back & Neck Pain Treatment',
+    description: 'Specialized manual therapy and exercises to alleviate chronic back and neck pain, improve posture, and restore spinal health.',
+    image: 'https://images.unsplash.com/photo-1562375732-d7-5862d2d5f3b?w=600&h=400&fit=crop',
+    icon: 'bone',
   },
   {
     id: 4,
-    title: 'Pediatric Physio',
-    description: 'Supporting physical development and mobility in children with congenital or acquired conditions.',
-    image: 'https://images.unsplash.com/photo-1581594693702-fbdc51b2763b?w=600&h=400&fit=crop',
-    icon: 'baby',
+    title: 'Neuro Rehabilitation',
+    description: 'Focused rehabilitation for stroke, Parkinson\'s, and spinal cord injuries to regain motor function and independence.',
+    image: 'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=600&h=400&fit=crop',
+    icon: 'brain',
   },
 ];
 
 const serviceIcons: Record<string, React.ReactNode> = {
-  bone: <Activity className="w-8 h-8" />,
-  brain: <Brain className="w-8 h-8" />,
-  dumbbell: <Dumbbell className="w-8 h-8" />,
   baby: <Baby className="w-8 h-8" />,
+  activity: <Activity className="w-8 h-8" />,
+  bone: <Bone className="w-8 h-8" />,
+  brain: <Brain className="w-8 h-8" />,
 };
 
 const DUMMY_DOCTORS: DoctorData[] = [
@@ -219,7 +219,7 @@ function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctor
           transition={{ duration: 0.8, delay: 0.2 }}
         >
           <span className="inline-block px-4 py-2 rounded-full glass-card text-sm text-slate-300 mb-6">
-            Premium Healthcare Experience
+            Dear Pain! Let's Breakup
           </span>
         </motion.div>
 
@@ -229,9 +229,7 @@ function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctor
           transition={{ duration: 0.8, delay: 0.4 }}
           className="text-5xl md:text-7xl font-bold mb-6"
         >
-          <span className="text-gradient">Revitalize Your Movement,</span>
-          <br />
-          <span className="text-white">Reclaim Your Life.</span>
+          <span className="text-gold">Body Experts</span>
         </motion.h1>
 
         <motion.p
@@ -481,12 +479,12 @@ function Footer() {
               <Activity className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-white font-semibold">Physio Clinic</h3>
-              <p className="text-slate-400 text-sm">Premium Care</p>
+              <h3 className="text-white font-semibold">Body Experts</h3>
+              <p className="text-slate-400 text-sm">Dear Pain! Let's Breakup</p>
             </div>
           </div>
           <p className="text-slate-400 text-sm">
-            &copy; 2026 Physio Clinic. All rights reserved.
+            &copy; 2026 Body Experts. All rights reserved.
           </p>
         </div>
       </div>

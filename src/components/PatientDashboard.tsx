@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Dumbbell, CreditCard, TrendingUp, LogOut, Menu, X, UserCheck, FileText, Upload, Image, File, Copy, Check, Sparkles, Crown, UserPlus } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, CreditCard, TrendingUp, LogOut, Menu, X, UserCheck, FileText, Upload, Image, File, Copy, Check, Sparkles, Crown, UserPlus, Calculator } from 'lucide-react';
 import { User, PatientView } from '@/types';
 import PatientOverview from './PatientOverview';
 import PatientExercises from './PatientExercises';
@@ -11,6 +11,10 @@ import PatientProgress from './PatientProgress';
 import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import ImageUpload from './ImageUpload';
+import SmartGreeting from './SmartGreeting';
+import DailyTip from './DailyTip';
+import MedicalEmptyState from './MedicalEmptyState';
 
 interface PatientDashboardProps {
   user: User;
@@ -22,7 +26,7 @@ const navItems: { id: PatientView; label: string; icon: React.ReactNode }[] = [
   { id: 'exercises', label: 'Exercises', icon: <Dumbbell className="w-5 h-5" /> },
   { id: 'membership', label: 'Membership', icon: <CreditCard className="w-5 h-5" /> },
   { id: 'progress', label: 'Progress', icon: <TrendingUp className="w-5 h-5" /> },
-  { id: 'reports', label: 'Reports', icon: <FileText className="w-5 h-5" /> },
+  { id: 'reports', label: 'My Reports', icon: <FileText className="w-5 h-5" /> },
 ];
 
 export default function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
@@ -37,11 +41,21 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
   const [requestSent, setRequestSent] = useState(false);
   const [copied, setCopied] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [profileImage, setProfileImage] = useState<string>(user?.patientProfile?.profilePicture || user?.avatar || '');
   const [profileData, setProfileData] = useState({
     age: user?.patientProfile?.age || '',
     gender: user?.patientProfile?.gender || '',
     medicalHistory: user?.patientProfile?.medicalHistory || '',
   });
+
+  useEffect(() => {
+    setProfileImage(user?.patientProfile?.profilePicture || user?.avatar || '');
+    setProfileData({
+      age: user?.patientProfile?.age || '',
+      gender: user?.patientProfile?.gender || '',
+      medicalHistory: user?.patientProfile?.medicalHistory || '',
+    });
+  }, [user]);
 
   const isAssigned = user.status === 'assigned' && user.assignedDoctorName;
   const isMember = user.isMember && user.membershipStatus === 'active';
@@ -118,14 +132,21 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
     if (!user?.id) return;
     setSavingProfile(true);
     try {
-      await updateDoc(doc(db, 'users', user.id), {
+      const updateData: any = {
         profileCompleted: true,
         patientProfile: {
           age: Number(profileData.age),
           gender: profileData.gender,
           medicalHistory: profileData.medicalHistory,
         },
-      });
+      };
+
+      if (profileImage) {
+        updateData.profilePicture = profileImage;
+        updateData.avatar = profileImage;
+      }
+
+      await updateDoc(doc(db, 'users', user.id), updateData);
       setShowProfileModal(false);
     } catch (err) {
       console.error('Error saving profile:', err);
@@ -133,11 +154,25 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
     setSavingProfile(false);
   };
 
+  const handleImageUpload = async (url: string) => {
+    setProfileImage(url);
+    if (!user?.id) return;
+    try {
+      await updateDoc(doc(db, 'users', user.id), {
+        profilePicture: url,
+        avatar: url,
+        'patientProfile.profilePicture': url
+      });
+    } catch (err) {
+      console.error('Error updating profile picture:', err);
+    }
+  };
+
   const renderContent = () => {
     switch (activeView) {
       case 'overview':
         return (
-          <div>
+          <div className="space-y-6">
             {!isProfileComplete && (
               <motion.button
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -145,12 +180,19 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setShowProfileModal(true)}
-                className="w-full mb-6 px-6 py-4 rounded-xl premium-gradient text-white font-semibold flex items-center justify-center gap-3 shadow-lg shadow-blue-500/30"
+                className="w-full mb-6 px-6 py-4 rounded-xl premium-gradient text-white font-semibold flex items-center justify-center gap-3 shadow-lg shadow-[0_8px_24px_rgba(220,38,38,0.4)]"
               >
                 <UserPlus className="w-5 h-5" />
                 <span>Complete Your Profile</span>
               </motion.button>
             )}
+            
+            {/* Smart Greeting */}
+            <SmartGreeting name={user.name} />
+
+            {/* Daily Wellness Tip */}
+            <DailyTip />
+
             <PatientOverview 
               user={user} 
               onUpgradeClick={() => setShowMembershipModal(true)} 
@@ -171,7 +213,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             <div className="glass-card p-6">
               <h2 className="text-xl font-semibold text-white mb-4">Upload Medical Reports</h2>
               <p className="text-slate-400 text-sm mb-4">Upload PDF or images (MRI, X-rays) for your doctor to view</p>
-              <label className="flex items-center justify-center w-full p-8 border-2 border-dashed border-white/20 rounded-xl cursor-pointer hover:border-primary/50 transition-colors">
+              <label className="flex items-center justify-center w-full p-8 border-2 border-dashed border-white/20 rounded-xl cursor-pointer hover:border-primary/50 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] transition-colors">
                 <input type="file" accept="image/*,.pdf" onChange={handleUpload} className="hidden" disabled={uploading} />
                 <div className="text-center">
                   <Upload className="w-12 h-12 mx-auto mb-3 text-slate-400" />
@@ -204,19 +246,20 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                         href={report.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-4 py-2 rounded-lg bg-primary/20 text-primary text-sm hover:bg-primary/30"
+                        className="px-4 py-2 rounded-lg bg-primary/20 text-primary text-sm hover:bg-primary/30 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)]"
                       >
                         View
                       </a>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="text-center py-8 text-slate-500">
-                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No reports uploaded yet</p>
-                </div>
-              )}
+               ) : (
+                 <MedicalEmptyState
+                   title="No Reports Yet"
+                   description="Upload your medical reports, prescriptions, and X-rays for your doctor to review."
+                   className="bg-white/5"
+                 />
+               )}
             </div>
           </div>
         );
@@ -226,7 +269,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-950">
+    <div className="min-h-screen flex">
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -248,11 +291,12 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
       >
         <div className="p-6 border-b border-white/10">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full premium-gradient flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <span className="text-white font-bold text-lg">
-                {user.name.charAt(0).toUpperCase()}
-              </span>
-            </div>
+            <ImageUpload
+              currentImage={profileImage}
+              userId={user?.id || ''}
+              onImageUpload={handleImageUpload}
+              size="md"
+            />
             <div className="flex-1 min-w-0">
               <p className="text-white font-semibold truncate">{user.name}</p>
               <p className="text-slate-400 text-sm">Patient Profile</p>
@@ -278,8 +322,8 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
               }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                 activeView === item.id
-                  ? 'premium-gradient text-white shadow-lg shadow-blue-500/30'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  ? 'premium-gradient text-white shadow-lg shadow-[0_8px_24px_rgba(220,38,38,0.4)]'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5 hover:shadow-[0_0_30px_rgba(220,38,38,0.3)]'
               }`}
             >
               {item.icon}
@@ -293,7 +337,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:text-white hover:bg-red-500 transition-all border border-red-500/20"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:text-white hover:bg-red-500 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-all border border-red-500/20"
           >
             <LogOut className="w-5 h-5" />
             <span className="font-medium">Logout</span>
@@ -301,8 +345,8 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
         </div>
       </motion.aside>
 
-      <div className="flex-1 flex flex-col min-h-screen">
-        <header className="glass-card border-t-0 border-x-0 rounded-none px-6 py-4 flex items-center justify-between bg-black/10">
+      <div className="flex-1 flex flex-col min-h-screen bg-slate-950">
+        <header className="glass-card border-t-0 border-x-0 rounded-none px-4 py-4 flex items-center justify-between bg-black/10">
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
@@ -318,7 +362,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             {/* Header Logout for Mobile/Tablet */}
             <button 
               onClick={onLogout}
-              className="p-2 hover:bg-red-500/10 rounded-lg group transition-all"
+              className="p-2 hover:bg-red-500/10 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] rounded-lg group transition-all"
               title="Logout"
             >
               <LogOut className="w-5 h-5 text-slate-500 group-hover:text-red-400" />
@@ -330,7 +374,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mx-6 mt-4 glass-card p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20"
+            className="mx-4 mt-4 glass-card p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center">
@@ -346,7 +390,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mx-6 mt-4 glass-card p-4 bg-amber-500/5 border border-amber-500/20"
+            className="mx-4 mt-4 glass-card p-4 bg-amber-500/5 border border-amber-500/20"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
@@ -360,7 +404,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
           </motion.div>
         )}
 
-        <main className="flex-1 p-6 overflow-x-hidden">
+        <main className="flex-1 max-w-7xl mx-auto px-4 py-6 overflow-x-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeView}
@@ -398,7 +442,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             >
               <button
                 onClick={() => setShowMembershipModal(false)}
-                className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-lg transition-colors"
+                className="absolute top-4 right-4 p-2 hover:bg-white/10 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] rounded-lg transition-colors"
               >
                 <X className="w-5 h-5 text-slate-400" />
               </button>
@@ -447,7 +491,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                         <span className="text-white font-mono">0000-0000-0000</span>
                         <button
                           onClick={copyToClipboard}
-                          className="p-1 hover:bg-white/10 rounded transition-colors"
+                            className="p-1 hover:bg-white/10 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] rounded transition-colors"
                         >
                           {copied ? (
                             <Check className="w-4 h-4 text-emerald-400" />
@@ -479,7 +523,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                     whileTap={{ scale: 0.98 }}
                     onClick={handleSubmitMembershipRequest}
                     disabled={!trxId.trim() || submitting}
-                    className="w-full py-4 rounded-xl premium-gradient text-white font-bold shadow-lg shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-4 rounded-xl premium-gradient text-white font-bold shadow-lg shadow-[0_8px_24px_rgba(220,38,38,0.4)] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? 'Submitting...' : 'Submit Request'}
                   </motion.button>
@@ -508,7 +552,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                 <h2 className="text-xl font-semibold text-white">Complete Your Profile</h2>
                 <button
                   onClick={() => setShowProfileModal(false)}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                  className="p-2 hover:bg-white/10 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] rounded-lg transition-colors"
                 >
                   <X className="w-5 h-5 text-slate-400" />
                 </button>
@@ -555,7 +599,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSavePatientProfile}
                 disabled={savingProfile || !profileData.age || !profileData.gender}
-                className="w-full mt-6 py-3 rounded-xl premium-gradient text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full mt-6 py-3 rounded-xl premium-gradient text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)]"
               >
                 {savingProfile ? 'Saving...' : 'Save Profile'}
               </motion.button>

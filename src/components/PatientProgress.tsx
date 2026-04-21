@@ -5,6 +5,9 @@ import { motion } from 'framer-motion';
 import { Trophy, Target, Calendar, Star, Award, Flame, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Patient } from '@/types';
 import { MILESTONES } from '@/lib/data';
+import CounterAnimation from './CounterAnimation';
+import CircularProgress from './CircularProgress';
+import MedicalEmptyState from './MedicalEmptyState';
 
 interface PatientProgressProps {
   patient: Patient | null;
@@ -45,20 +48,20 @@ export default function PatientProgress({ patient }: PatientProgressProps) {
 
   if (!patient) {
     return (
-      <div className="text-center py-12 text-slate-500">
-        <Trophy className="w-16 h-16 mx-auto mb-4 opacity-50" />
-        <p>No patient data available</p>
-      </div>
+      <MedicalEmptyState
+        title="No Patient Data"
+        description="Select a patient to view their progress and achievements."
+      />
     );
   }
 
-  const completedSessions = patient.attendance.length;
+  const completedSessions = patient.attendance?.length || 0;
   const totalSessions = patient.membership?.totalSessions || 12;
   const progress = totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0;
   const milestones = getMilestones(completedSessions);
   const calendarDays = getCalendarDays(
     currentMonth,
-    patient.attendance.map(a => new Date(a.date))
+    (patient.attendance || []).map(a => new Date(a.date))
   );
 
   return (
@@ -83,61 +86,31 @@ export default function PatientProgress({ patient }: PatientProgressProps) {
           </div>
 
           <div className="flex items-center justify-center">
-            <div className="relative w-40 h-40">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.1)"
-                  strokeWidth="10"
-                />
-                <motion.circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  fill="none"
-                  stroke="url(#progressGradientRed)"
-                  strokeWidth="10"
-                  strokeLinecap="round"
-                  strokeDasharray={251.2}
-                  strokeDashoffset={251.2 - (251.2 * progress) / 100}
-                  initial={{ strokeDashoffset: 251.2 }}
-                  animate={{ strokeDashoffset: 251.2 - (251.2 * progress) / 100 }}
-                  transition={{ duration: 1.5, ease: 'easeOut' }}
-                />
-                <defs>
-                  <linearGradient id="progressGradientRed" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#dc2626" />
-                    <stop offset="100%" stopColor="#0ea5e9" />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <motion.span
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                  className="text-3xl font-bold text-gradient"
-                >
-                  {Math.round(progress)}%
-                </motion.span>
-                <span className="text-slate-400 text-sm">complete</span>
-              </div>
-            </div>
+            <CircularProgress
+              value={completedSessions}
+              max={totalSessions}
+              size={160}
+              strokeWidth={12}
+              label="Progress"
+              color="red"
+              showPercentage={true}
+            />
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-4">
-            <div className="glass-card p-4 text-center">
-              <p className="text-slate-400 text-sm">Completed</p>
-              <p className="text-primary font-bold text-2xl">{completedSessions}</p>
-            </div>
-            <div className="glass-card p-4 text-center">
-              <p className="text-slate-400 text-sm">Remaining</p>
-              <p className="text-sky font-bold text-2xl">{totalSessions - completedSessions}</p>
-            </div>
-          </div>
+           <div className="mt-6 grid grid-cols-2 gap-4">
+             <div className="glass-card p-4 text-center">
+               <p className="text-slate-400 text-sm">Completed</p>
+               <p className="text-primary font-bold text-2xl">
+                 <CounterAnimation value={completedSessions} duration={1.5} />
+               </p>
+             </div>
+             <div className="glass-card p-4 text-center">
+               <p className="text-slate-400 text-sm">Remaining</p>
+               <p className="text-sky font-bold text-2xl">
+                 <CounterAnimation value={totalSessions - completedSessions} duration={1.5} />
+               </p>
+             </div>
+           </div>
         </motion.div>
 
         <motion.div
@@ -281,7 +254,7 @@ export default function PatientProgress({ patient }: PatientProgressProps) {
         </div>
 
         <div className="space-y-3 max-h-[200px] overflow-y-auto">
-          {patient.attendance.slice().reverse().map((record, index) => (
+          {(patient.attendance || []).slice().reverse().map((record, index) => (
             <motion.div
               key={index}
               initial={{ opacity: 0, x: -20 }}
@@ -307,7 +280,7 @@ export default function PatientProgress({ patient }: PatientProgressProps) {
               <CheckCircle className="w-5 h-5 text-emerald-400" />
             </motion.div>
           ))}
-          {patient.attendance.length === 0 && (
+          {(patient.attendance || []).length === 0 && (
             <div className="text-center py-6 text-slate-500">
               <Calendar className="w-10 h-10 mx-auto mb-2 opacity-50" />
               <p>No sessions attended yet</p>

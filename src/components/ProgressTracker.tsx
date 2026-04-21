@@ -102,7 +102,7 @@ export default function ProgressTracker({ patients, selectedPatient, onSelectPat
                   </div>
                   <div className="text-right">
                     <p className="text-primary font-bold text-xl">
-                      {patient.attendance.length}/{patient.membership?.totalSessions}
+                      {(patient.attendance || []).length}/{patient.membership?.totalSessions}
                     </p>
                     <p className="text-slate-400 text-xs">sessions</p>
                   </div>
@@ -121,13 +121,13 @@ export default function ProgressTracker({ patients, selectedPatient, onSelectPat
     );
   }
 
-  const completedSessions = selectedPatient.attendance.length;
-  const totalSessions = selectedPatient.membership.totalSessions;
+  const completedSessions = selectedPatient.attendance?.length || 0;
+  const totalSessions = selectedPatient.membership?.totalSessions || 1;
   const progress = (completedSessions / totalSessions) * 100;
   const milestones = getMilestones(completedSessions);
   const calendarDays = getCalendarDays(
     currentMonth,
-    selectedPatient.attendance.map(a => new Date(a.date))
+    (selectedPatient.attendance || []).map(a => new Date(a.date))
   );
 
   return (
@@ -353,7 +353,7 @@ export default function ProgressTracker({ patients, selectedPatient, onSelectPat
             </div>
 
             <div className="space-y-3 max-h-[200px] overflow-y-auto">
-              {selectedPatient.attendance.slice().reverse().map((record, index) => (
+              {(selectedPatient.attendance || []).slice().reverse().map((record, index) => (
                 <motion.div
                   key={index}
                   initial={{ opacity: 0, x: -20 }}
@@ -379,7 +379,7 @@ export default function ProgressTracker({ patients, selectedPatient, onSelectPat
                   <CheckCircle className="w-5 h-5 text-emerald-400" />
                 </motion.div>
               ))}
-              {selectedPatient.attendance.length === 0 && (
+              {(selectedPatient.attendance || []).length === 0 && (
                 <div className="text-center py-6 text-slate-500">
                   <Calendar className="w-10 h-10 mx-auto mb-2 opacity-50" />
                   <p>No sessions attended yet</p>

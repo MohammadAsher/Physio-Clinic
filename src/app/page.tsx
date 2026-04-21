@@ -73,28 +73,29 @@ export default function Home() {
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           const userData = userDoc.data();
           
-          if (userData) {
-            const user: User = {
-              id: firebaseUser.uid,
-              name: userData.name,
-              email: userData.email,
-              phone: userData.phone || '',
-              role: userData.role || 'patient',
-              createdAt: userData.createdAt?.toDate() || new Date(),
-              status: userData.status,
-              assignedDoctorId: userData.assignedDoctorId,
-              assignedDoctorName: userData.assignedDoctorName,
-              isMember: userData.isMember,
-              membershipStatus: userData.membershipStatus,
-              membershipType: userData.membershipType,
-              membershipRequestDate: userData.membershipRequestDate?.toDate(),
-              submittedTrxID: userData.submittedTrxID,
-              profileCompleted: userData.profileCompleted || false,
-              doctorProfile: userData.doctorProfile,
-              patientProfile: userData.patientProfile,
-            };
-            setCurrentUser(user);
-          }
+           if (userData) {
+             const user: User = {
+               id: firebaseUser.uid,
+               name: userData.name,
+               email: userData.email,
+               phone: userData.phone || '',
+               role: userData.role || 'patient',
+               createdAt: userData.createdAt?.toDate() || new Date(),
+               status: userData.status,
+               assignedDoctorId: userData.assignedDoctorId,
+               assignedDoctorName: userData.assignedDoctorName,
+               isMember: userData.isMember,
+               membershipStatus: userData.membershipStatus,
+               membershipType: userData.membershipType,
+               totalFees: userData.totalFees,
+               membershipRequestDate: userData.membershipRequestDate?.toDate(),
+               submittedTrxID: userData.submittedTrxID,
+               profileCompleted: userData.profileCompleted || false,
+               doctorProfile: userData.doctorProfile,
+               patientProfile: userData.patientProfile,
+             };
+             setCurrentUser(user);
+           }
         } catch (err) {
           console.error('Error fetching user data:', err);
         }
@@ -161,37 +162,38 @@ export default function Home() {
     }
    }, [currentUser?.role, currentUser?.id]);
 
-  useEffect(() => {
-    if (currentUser?.role === 'admin') {
-      const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
-        const fetchedUsers: User[] = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name: data.name || '',
-            email: data.email || '',
-            phone: data.phone || '',
-            role: data.role || 'patient',
-            avatar: data.avatar,
-            createdAt: data.createdAt?.toDate() || new Date(),
-            status: data.status,
-            assignedDoctorId: data.assignedDoctorId,
-            assignedDoctorName: data.assignedDoctorName,
-            isMember: data.isMember,
-            membershipStatus: data.membershipStatus,
-            membershipType: data.membershipType,
-            membershipRequestDate: data.membershipRequestDate?.toDate(),
-            submittedTrxID: data.submittedTrxID,
-            profileCompleted: data.profileCompleted,
-            doctorProfile: data.doctorProfile,
-          };
-        });
-        setUsers(fetchedUsers);
-      });
+   useEffect(() => {
+     if (currentUser?.role === 'admin') {
+       const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+         const fetchedUsers: User[] = snapshot.docs.map(doc => {
+           const data = doc.data();
+           return {
+             id: doc.id,
+             name: data.name || '',
+             email: data.email || '',
+             phone: data.phone || '',
+             role: data.role || 'patient',
+             avatar: data.avatar,
+             createdAt: data.createdAt?.toDate() || new Date(),
+             status: data.status,
+             assignedDoctorId: data.assignedDoctorId,
+             assignedDoctorName: data.assignedDoctorName,
+             isMember: data.isMember,
+             membershipStatus: data.membershipStatus,
+             membershipType: data.membershipType,
+             totalFees: data.totalFees,
+             membershipRequestDate: data.membershipRequestDate?.toDate(),
+             submittedTrxID: data.submittedTrxID,
+             profileCompleted: data.profileCompleted,
+             doctorProfile: data.doctorProfile,
+           };
+         });
+         setUsers(fetchedUsers);
+       });
 
-      return () => unsubscribe();
-    }
-  }, [currentUser?.role]);
+       return () => unsubscribe();
+     }
+   }, [currentUser?.role]);
 
   useEffect(() => {
     const doctorsQuery = query(
@@ -240,12 +242,12 @@ export default function Home() {
       const updateData: any = {
         patientStatus: status,
       };
-      
+
       if (status === 'waiting') {
         updateData.status = 'assigned';
       } else if (status === 'consulting' || status === 'completed') {
         updateData.status = 'assigned';
-        
+
         const today = new Date().toISOString().split('T')[0];
         await addDoc(collection(db, 'attendance'), {
           userId: patientId,
@@ -254,14 +256,24 @@ export default function Home() {
           role: 'patient'
         });
       }
-      
+
       if (assignedDoctorId) updateData.assignedDoctorId = assignedDoctorId;
       if (assignedDoctorName) updateData.assignedDoctorName = assignedDoctorName;
-      
+
       await updateDoc(doc(db, 'users', patientId), updateData);
     } catch (err) {
       console.error('Error updating patient status:', err);
     }
+  };
+
+  const handleUpdatePatient = (updatedPatient: any) => {
+    if (!updatedPatient?.id) return;
+    handleUpdatePatientStatus(
+      updatedPatient.id,
+      updatedPatient.status,
+      updatedPatient.assignedDoctorId,
+      updatedPatient.assignedDoctorName
+    );
   };
 
   const handleAssignRole = async (userId: string, role: 'patient' | 'doctor') => {
@@ -354,22 +366,18 @@ return (
             onAssignRole={handleAssignRole}
             onLogout={handleLogout}
           />
-        ) : currentUser.role === 'patient' ? (
-          <PatientDashboard
-            user={currentUser}
-            doctors={doctors}
-            onLogout={handleLogout}
-            onBookAppointment={handleBookAppointment}
-            onCompleteProfile={handleCompletePatientProfile}
-          />
-        ) : (
-          <DoctorDashboardNew
-            user={currentUser}
-            patients={patients as any}
-            onUpdatePatient={handleUpdatePatientStatus}
-            onLogout={handleLogout}
-            onCompleteProfile={handleCompleteDoctorProfile}
-          />
+         ) : currentUser.role === 'patient' ? (
+           <PatientDashboard
+             user={currentUser}
+             onLogout={handleLogout}
+           />
+           ) : (
+             <DoctorDashboardNew
+               user={currentUser}
+               patients={patients as any}
+               onUpdatePatient={handleUpdatePatient}
+               onLogout={handleLogout}
+             />
         )}
     </AnimatePresence>
   );

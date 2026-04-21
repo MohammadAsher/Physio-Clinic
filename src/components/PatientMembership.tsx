@@ -14,6 +14,7 @@ const membershipTypes = {
   silver: { sessions: 12, price: 10000, name: 'Silver', color: 'from-gray-400 to-gray-600', features: ['12 Sessions', 'Basic Exercises', 'Email Support'] },
   gold: { sessions: 24, price: 18000, name: 'Gold', color: 'from-yellow-400 to-yellow-600', features: ['24 Sessions', 'Premium Exercises', 'Priority Support', 'Free T-Shirt'] },
   platinum: { sessions: 36, price: 25000, name: 'Platinum', color: 'from-purple-400 to-purple-600', features: ['Unlimited Sessions', 'Personal Trainer', '24/7 Support', 'VIP Lounge Access'] },
+  custom: { sessions: 0, price: 0, name: 'Custom', color: 'from-blue-500 to-red-500', features: [] },
 };
 
 export default function PatientMembership({ patient }: PatientMembershipProps) {
@@ -61,7 +62,7 @@ export default function PatientMembership({ patient }: PatientMembershipProps) {
             <motion.div
               key={type}
               whileHover={{ scale: 1.02, y: -5 }}
-              className="glass-card p-5"
+              className="glass-card p-5 hover:shadow-[0_0_30px_rgba(220,38,38,0.3)]"
             >
               <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${membershipTypes[type].color} flex items-center justify-center mb-4`}>
                 <Crown className="w-6 h-6 text-white" />
@@ -104,7 +105,7 @@ export default function PatientMembership({ patient }: PatientMembershipProps) {
             >
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold text-white">Confirm Upgrade</h3>
-                <button onClick={() => setShowUpgrade(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                <button onClick={() => setShowUpgrade(false)} className="p-2 hover:bg-white/10 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] rounded-lg">
                   <X className="w-5 h-5 text-slate-400" />
                 </button>
               </div>
@@ -144,6 +145,11 @@ export default function PatientMembership({ patient }: PatientMembershipProps) {
 
   const membership = patient.membership!;
   const progress = ((membership.totalSessions - membership.remainingSessions) / membership.totalSessions) * 100;
+  const isCustom = !!patient?.totalFees || membership.type === 'custom';
+  const planDisplay = isCustom
+    ? `Custom (${patient.totalFees?.toLocaleString()} PKR)`
+    : `${membershipTypes[membership.type as keyof typeof membershipTypes].name} Member`;
+  const gradientClass = `bg-gradient-to-br ${membershipTypes[membership.type as keyof typeof membershipTypes].color}`;
 
   return (
     <div className="space-y-6">
@@ -163,7 +169,7 @@ export default function PatientMembership({ patient }: PatientMembershipProps) {
           style={{ rotateX, rotateY }}
           className="relative"
         >
-          <div className={`glass-card p-6 bg-gradient-to-br ${membershipTypes[membership.type].color} relative overflow-hidden`}>
+          <div className={`glass-card p-6 ${gradientClass} relative overflow-hidden`}>
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
 
@@ -171,14 +177,23 @@ export default function PatientMembership({ patient }: PatientMembershipProps) {
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-2">
                   <Crown className="w-6 h-6 text-white" />
-                  <span className="text-white font-semibold text-lg">{membershipTypes[membership.type].name} Member</span>
+                  <span className="text-white font-semibold text-lg">{planDisplay}</span>
                 </div>
                 <Sparkles className="w-6 h-6 text-white/80" />
               </div>
 
               <div className="mb-6">
                 <p className="text-white/80 text-sm mb-1">Patient</p>
-                <p className="text-white font-semibold text-lg">{patient.name}</p>
+                <div className="flex items-center gap-3">
+                  {(patient.avatar || patient.profilePicture) && (
+                    <img
+                      src={patient.avatar || patient.profilePicture}
+                      alt={patient.name}
+                      className="w-10 h-10 rounded-full object-cover border-2 border-white/20"
+                    />
+                  )}
+                  <p className="text-white font-semibold text-lg">{patient.name}</p>
+                </div>
               </div>
 
               <div className="flex items-center justify-between mb-6">
@@ -236,7 +251,7 @@ export default function PatientMembership({ patient }: PatientMembershipProps) {
             </div>
             <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
               <span className="text-slate-400">Sessions Attended</span>
-              <span className="text-primary font-medium">{patient.attendance.length}</span>
+              <span className="text-primary font-medium">{patient.attendance?.length || 0}</span>
             </div>
             <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
               <span className="text-slate-400">Sessions Remaining</span>

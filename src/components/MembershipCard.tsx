@@ -69,6 +69,15 @@ export default function MembershipCard({ patient, onUpgradeToMember, onClose }: 
     const membership = patient.membership;
     const progress = ((membership.totalSessions - membership.remainingSessions) / membership.totalSessions) * 100;
 
+    // Determine display for custom membership
+    const isCustom = !!patient.totalFees;
+    const planDisplay = isCustom
+      ? `Custom (${patient.totalFees?.toLocaleString()} PKR)`
+      : `${membershipTypes[membership.type as keyof typeof membershipTypes].name} Member`;
+    const gradientClass = isCustom
+      ? 'bg-gradient-to-br from-blue-500 to-red-500'
+      : `bg-gradient-to-br ${membershipTypes[membership.type as keyof typeof membershipTypes].color}`;
+
     return (
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
@@ -89,7 +98,7 @@ export default function MembershipCard({ patient, onUpgradeToMember, onClose }: 
           style={{ rotateX, rotateY }}
           className="relative"
         >
-          <div className={`glass-card p-6 bg-gradient-to-br ${membershipTypes[membership.type as keyof typeof membershipTypes].color} relative overflow-hidden`}>
+          <div className={`glass-card p-6 ${gradientClass} relative overflow-hidden`}>
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
             <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
 
@@ -97,15 +106,24 @@ export default function MembershipCard({ patient, onUpgradeToMember, onClose }: 
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-2">
                   <Crown className="w-6 h-6 text-white" />
-                   <span className="text-white font-semibold text-lg">{membershipTypes[membership.type as keyof typeof membershipTypes].name} Member</span>       
-                       </div>
-                <Sparkles className="w-6 h-6 text-white/80" />
-              </div>
+                   <span className="text-white font-semibold text-lg">{planDisplay}</span>       
+                        </div>
+                 <Sparkles className="w-6 h-6 text-white/80" />
+               </div>
 
-              <div className="mb-6">
-                <p className="text-white/80 text-sm mb-1">Patient</p>
-                <p className="text-white font-semibold text-lg">{patient.name}</p>
-              </div>
+               <div className="mb-6">
+                 <p className="text-white/80 text-sm mb-1">Patient</p>
+                 <div className="flex items-center gap-3">
+                   {(patient.avatar || patient.profilePicture) && (
+                     <img
+                       src={patient.avatar || patient.profilePicture}
+                       alt={patient.name}
+                       className="w-10 h-10 rounded-full object-cover border-2 border-white/20"
+                     />
+                   )}
+                   <p className="text-white font-semibold text-lg">{patient.name}</p>
+                 </div>
+               </div>
 
               <div className="flex items-center justify-between mb-6">
                 <div>

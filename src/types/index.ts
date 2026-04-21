@@ -5,13 +5,15 @@ export interface User {
   phone: string;
   role: 'patient' | 'doctor' | 'admin';
   avatar?: string;
+  profilePicture?: string;
   createdAt: Date;
   status?: 'unassigned' | 'assigned';
   assignedDoctorId?: string;
   assignedDoctorName?: string;
   isMember?: boolean;
   membershipStatus?: 'pending' | 'active' | 'expired' | 'pendingApproval' | 'rejected';
-  membershipType?: 'silver' | 'gold' | 'platinum';
+  membershipType?: 'silver' | 'gold' | 'platinum' | 'custom';
+  totalFees?: number;
   membershipRequestDate?: Date;
   submittedTrxID?: string;
   profileCompleted?: boolean;
@@ -21,6 +23,7 @@ export interface User {
     specialization?: string;
     availableDays?: string[];
     timings?: string;
+    profilePicture?: string;
   };
   patientProfile?: {
     age?: number;
@@ -42,17 +45,39 @@ export interface Appointment {
   type: 'general' | 'specific';
 }
 
+export interface Report {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileType: 'image' | 'pdf' | 'other';
+  uploadedAt: Date;
+  userId?: string;
+}
+
 export interface Patient {
   id: string;
+  userId?: string;
   name: string;
+  phone?: string;
+  email?: string;
+  age?: number;
+  gender?: 'male' | 'female' | 'other';
+  address?: string;
   status: 'waiting' | 'consulting' | 'completed';
   checkInTime: any;
   token: any;
-  isMember?: any;
+  isMember?: boolean;
+  membershipStatus?: string;
+  membershipType?: string;
   attendance?: any[];
   medicalCondition?: any;
   membership?: any;
   exercises?: any[];
+  totalFees?: number;
+  profilePicture?: string;
+  avatar?: string;
+  assignedDoctorId?: string;
+  assignedDoctorName?: string;
 }
 
 export interface Exercise {
@@ -68,12 +93,13 @@ export interface FirestorePatient extends Patient {}
 
 export interface Membership {
   id: string;
-  type: 'silver' | 'gold' | 'platinum';
+  type: 'silver' | 'gold' | 'platinum' | 'custom';
   totalSessions: number;
   remainingSessions: number;
   startDate: Date;
   endDate?: Date;
   qrCode: string;
+  totalFees?: number;
 }
 
 export interface AttendanceRecord {

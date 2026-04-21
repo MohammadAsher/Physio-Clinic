@@ -25,8 +25,8 @@ export default function LoginPage({ onLogin, onBack }: LoginPageProps) {
             <Activity className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white">Physio Clinic</h1>
-            <p className="text-slate-400 text-xs">Premium Care</p>
+            <h1 className="text-xl font-bold text-white">Body Experts</h1>
+            <p className="text-slate-400 text-xs">Dear Pain! Let's Breakup</p>
           </div>
         </div>
       </header>
