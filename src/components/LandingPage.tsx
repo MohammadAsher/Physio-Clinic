@@ -216,11 +216,11 @@ function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctor
       <motion.nav 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
+        className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-4 bg-black/50 backdrop-blur-md border-b border-white/10"
       >
         <div className="flex items-center gap-3">
-          <Logo width={180} height={56} className="cursor-pointer" />
-          <span className="text-rose-400 text-xs font-medium tracking-widest">DEAR PAIN! LET'S BREAKUP</span>
+          <Logo width={200} height={64} className="cursor-pointer" />
+          <span className="text-rose-400 text-xs font-bold tracking-widest">DEAR PAIN! LET'S BREAKUP</span>
         </div>
         <div className="flex items-center gap-4">
           <button 
@@ -238,15 +238,12 @@ function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctor
         </div>
       </motion.nav>
 
-      <motion.div style={{ opacity }} className="relative z-10 max-w-6xl mx-auto px-4 py-20 text-center">
+      <motion.div style={{ opacity }} className="relative z-10 max-w-6xl mx-auto px-4 py-24 text-center">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
-          <h1 className="text-5xl md:text-7xl font-bold mb-4 bg-gradient-to-r from-rose-400 via-rose-500 to-crimson-500 bg-clip-text text-transparent">
-            Body Experts
-          </h1>
         </motion.div>
 
         <motion.p

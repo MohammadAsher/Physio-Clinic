@@ -21,6 +21,21 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
   const totalSessions = patient?.membership?.totalSessions || 10;
   const remainingSessions = patient?.membership?.remainingSessions || 5;
   const progress = totalSessions > 0 ? ((totalSessions - remainingSessions) / totalSessions) * 100 : 0;
+  
+  const membershipAmount = user.totalFees || 0;
+  let planName = 'Basic';
+  let planColor = 'from-slate-400 to-slate-600';
+  
+  if (membershipAmount >= 3000 && membershipAmount <= 7000) {
+    planName = 'Silver';
+    planColor = 'from-slate-300 to-slate-400';
+  } else if (membershipAmount >= 8000 && membershipAmount <= 12000) {
+    planName = 'Gold';
+    planColor = 'from-amber-400 to-amber-600';
+  } else if (membershipAmount > 12000) {
+    planName = 'Diamond';
+    planColor = 'from-cyan-400 to-blue-500';
+  }
 
   const staggerContainer = {
     hidden: { opacity: 0 },
@@ -55,9 +70,17 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
     >
       <motion.div
         variants={slideUpVariant}
+        className="flex items-center justify-between"
       >
-        <h2 className="text-3xl font-bold text-white mb-2">Welcome back, {user.name.split(' ')[0]}!</h2>
-        <p className="text-slate-400">Here's an overview of your physiotherapy journey</p>
+        <div>
+          <h2 className="text-3xl font-bold text-white mb-2">Welcome back, {user.name.split(' ')[0]}!</h2>
+          <p className="text-slate-400">Here's an overview of your physiotherapy journey</p>
+        </div>
+        {isMember && (
+          <div className={`px-4 py-2 rounded-xl bg-gradient-to-r ${planColor} text-white font-bold shadow-lg`}>
+            {planName} Plan
+          </div>
+        )}
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

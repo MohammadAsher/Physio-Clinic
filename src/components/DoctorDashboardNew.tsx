@@ -53,8 +53,8 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const timeOptions = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM'];
 
-  const isStep1Complete = !!profileImage && !!profileData.education && !!profileData.educationCertificate;
-  const isStep2Complete = !!profileData.specialization && !!profileData.experience;
+  const isStep1Complete = !!profileData.education && !!profileData.specialization;
+  const isStep2Complete = !!profileData.experience;
   const isStep3Complete = profileData.availableDays.length > 0 && !!profileData.startTime && !!profileData.endTime;
   const canSubmit = isStep1Complete && isStep2Complete && isStep3Complete;
 
@@ -468,75 +468,28 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
 
                       <div>
                         <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
-                          Education Degree
+                          Degree Title
                         </label>
                         <input 
                           type="text" 
                           value={profileData.education}
                           onChange={(e) => setProfileData({...profileData, education: e.target.value})}
-                          placeholder="e.g. MBBS, DPT from Dow University"
+                          placeholder="e.g. MBBS, DPT, BPT"
                           className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-white placeholder:text-slate-600"
                         />
                       </div>
 
                       <div>
                         <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
-                          Degree Certificate
+                          Specialization
                         </label>
-                        <input
-                          ref={certInputRef}
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={handleDegreeCertUpload}
-                          className="hidden"
+                        <input 
+                          type="text" 
+                          value={profileData.specialization}
+                          onChange={(e) => setProfileData({...profileData, specialization: e.target.value})}
+                          placeholder="e.g. Orthopedic, Sports, Neuro"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-white placeholder:text-slate-600"
                         />
-                        {!profileData.educationCertificate ? (
-                          <motion.label
-                            whileHover={{ scale: 1.01 }}
-                            whileTap={{ scale: 0.99 }}
-                            onClick={() => !uploadingCert && certInputRef.current?.click()}
-                            className={`flex items-center justify-center w-full p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
-                              uploadingCert 
-                                ? 'border-rose-500/30 bg-rose-500/5' 
-                                : 'border-rose-500/30 hover:border-rose-500 hover:bg-rose-500/5'
-                            }`}
-                          >
-                            <div className="text-center w-full">
-                              {uploadingCert ? (
-                                <>
-                                  <div className="flex items-center justify-center gap-2 mb-2">
-                                    <div className="w-5 h-5 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
-                                    <span className="text-xs text-rose-200">Uploading... {Math.round(certUploadProgress)}%</span>
-                                  </div>
-                                  <div className="w-full h-2 bg-rose-500/20 rounded-full overflow-hidden">
-                                    <div 
-                                      className="h-full bg-gradient-to-r from-rose-500 to-rose-400 rounded-full transition-all duration-300"
-                                      style={{ width: `${certUploadProgress}%` }}
-                                    />
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <File className="w-6 h-6 mx-auto mb-2 text-rose-400" />
-                                  <p className="text-xs text-rose-200">Upload Certificate (JPG, PNG, PDF - Max 2MB)</p>
-                                </>
-                              )}
-                            </div>
-                          </motion.label>
-                        ) : (
-                          <div className="flex items-center justify-between p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl">
-                            <div className="flex items-center gap-3">
-                              <File className="w-6 h-6 text-rose-400" />
-                              <span className="text-sm text-rose-200">Certificate Uploaded</span>
-                            </div>
-                            <button 
-                              onClick={() => setProfileData({...profileData, educationCertificate: ''})}
-                              className="text-xs text-rose-400 hover:text-rose-300"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        )}
                       </div>
 
                       <motion.button
