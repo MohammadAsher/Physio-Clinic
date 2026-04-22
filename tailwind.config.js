@@ -14,6 +14,18 @@ module.exports = {
           500: 'rgba(255, 255, 255, 0.30)',
           border: 'rgba(255, 255, 255, 0.18)',
         },
+        crimson: {
+          50: '#fef2f2',
+          100: '#fee2e2',
+          200: '#fecaca',
+          300: '#fca5a5',
+          400: '#f87171',
+          500: '#ef4444',
+          600: '#dc2626',
+          700: '#991b1b',
+          800: '#7f1d1d',
+          900: '#450a0a',
+        },
         primary: {
           DEFAULT: '#dc2626',
           light: '#ef4444',
@@ -41,6 +53,8 @@ module.exports = {
         'dark-gradient': 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
         'gold-gradient': 'linear-gradient(135deg, #D4AF37 0%, #F9E29C 50%, #D4AF37 100%)',
         'radial-dark': 'radial-gradient(ellipse at top, #1e293b 0%, #0f172a 50%, #010409 100%)',
+        'rose-crimson': 'linear-gradient(135deg, #e11d48 0%, #991b1b 100%)',
+        'rose-crimson-glow': 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)',
       },
       backdropBlur: {
         glass: '16px',

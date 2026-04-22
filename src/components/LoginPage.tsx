@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Activity } from 'lucide-react';
+import Logo from './Logo';
 import AuthForm from '@/components/AuthForm';
 
 interface LoginPageProps {
@@ -21,11 +21,9 @@ export default function LoginPage({ onLogin, onBack }: LoginPageProps) {
     <div className="min-h-screen flex flex-col">
       <header className="glass-card border-b-0 border-x-0 rounded-none px-6 py-4">
         <div className="max-w-md mx-auto flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl premium-gradient flex items-center justify-center">
-            <Activity className="w-5 h-5 text-white" />
-          </div>
+          <Logo width={40} height={40} className="rounded-lg" />
           <div>
-            <h1 className="text-xl font-bold text-white">Body Experts</h1>
+            <Logo width={120} height={28} />
             <p className="text-slate-400 text-xs">Dear Pain! Let's Breakup</p>
           </div>
         </div>

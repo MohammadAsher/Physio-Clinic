@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Dumbbell, CreditCard, TrendingUp, LogOut, Menu, X, UserCheck, FileText, Upload, Image, File, Copy, Check, Sparkles, Crown, UserPlus, Calculator } from 'lucide-react';
 import { User, PatientView } from '@/types';
+import Logo from './Logo';
 import PatientOverview from './PatientOverview';
 import PatientExercises from './PatientExercises';
 import PatientMembership from './PatientMembership';
 import PatientProgress from './PatientProgress';
-import { db, storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import ImageUpload from './ImageUpload';
 import SmartGreeting from './SmartGreeting';
 import DailyTip from './DailyTip';
@@ -88,40 +88,59 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
 
   useEffect(() => {
     if (user?.id) {
-      const unsubscribe = onSnapshot(collection(db, 'users', user.id, 'reports'), (snapshot) => {
-        const fetchedReports = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          uploadedAt: doc.data().uploadedAt?.toDate()
-        }));
-        setReports(fetchedReports);
+      setReports(user?.reports || []);
+      const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setReports(data?.reports || []);
+        }
       });
       return () => unsubscribe();
     }
   }, [user?.id]);
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user?.id) return;
+    if (!file || !user?.id) {
+      console.log('Upload Error: No file or user ID');
+      return;
+    }
     
+    console.log('Processing file:', file.name, file.size, file.type);
     setUploading(true);
     try {
-      const fileRef = ref(storage, `reports/${user.id}/${Date.now()}_${file.name}`);
-      await uploadBytes(fileRef, file);
-      const downloadUrl = await getDownloadURL(fileRef);
+      const base64 = await fileToBase64(file);
+      console.log('File converted to Base64, length:', base64.length);
       
-      const fileType = file.type.startsWith('image/') ? 'image' : 'pdf';
-      
-      await addDoc(collection(db, 'users', user.id, 'reports'), {
+      const fileType = file.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'image';
+      const newReport = {
         fileName: file.name,
-        fileUrl: downloadUrl,
+        fileUrl: base64,
         fileType,
         uploadedAt: new Date()
+      };
+      
+      console.log('Saving to Firestore reports array...');
+      const currentReports = user?.reports || [];
+      await updateDoc(doc(db, 'users', user.id), {
+        reports: [...currentReports, newReport]
       });
+      console.log('Report saved successfully!');
     } catch (err) {
-      console.error('Error uploading file:', err);
+      console.error('Error saving report:', err);
+      alert('Upload failed. Please try again.');
     }
     setUploading(false);
+    if (e.target) e.target.value = '';
   };
 
   const handleSubmitMembershipRequest = async () => {
@@ -224,6 +243,45 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             </motion.div>
 
             <motion.div variants={slideUpVariant}>
+              <div className="glass-card-interactive p-6 rounded-2xl bg-gradient-to-br from-rose-500/10 to-crimson-700/5 border border-rose-500/20">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-rose-600 to-crimson-700 flex items-center justify-center shadow-lg shadow-rose-900/30">
+                      <FileText className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white">Medical Reports</h3>
+                      <p className="text-rose-400 text-xs">Upload PDF, X-rays, MRI reports</p>
+                    </div>
+                  </div>
+                </div>
+                <label className="flex items-center justify-center w-full p-6 border-2 border-dashed border-rose-500/30 rounded-xl cursor-pointer hover:border-rose-500 hover:bg-rose-500/10 transition-all group">
+                  <input 
+                    type="file" 
+                    accept="image/*,.pdf" 
+                    onChange={handleUpload} 
+                    className="hidden" 
+                    disabled={uploading} 
+                  />
+                  <div className="text-center">
+                    {uploading ? (
+                      <>
+                        <div className="w-8 h-8 mx-auto mb-2 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+                        <p className="text-rose-300 font-medium">Uploading...</p>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-10 h-10 mx-auto mb-2 text-rose-400 group-hover:text-rose-300 transition-colors" />
+                        <p className="text-rose-200 font-medium">Tap to Upload Report</p>
+                        <p className="text-slate-500 text-xs mt-1">PDF, JPG, PNG (Max 10MB)</p>
+                      </>
+                    )}
+                  </div>
+                </label>
+              </div>
+            </motion.div>
+
+            <motion.div variants={slideUpVariant}>
               <PatientOverview 
                 user={user} 
                 onUpgradeClick={() => setShowMembershipModal(true)} 
@@ -245,19 +303,33 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             variants={staggerContainer}
             initial="hidden"
             animate="visible"
-            className="space-y-6"
+            className="space-y-6 max-w-2xl mx-auto"
           >
-            <motion.div variants={slideUpVariant} className="glass-card-interactive p-6">
-              <h2 className="text-xl font-semibold text-white mb-4">Upload Medical Reports</h2>
-              <p className="text-slate-400 text-sm mb-4">Upload PDF or images (MRI, X-rays) for your doctor to view</p>
-              <label className="flex items-center justify-center w-full p-8 border-2 border-dashed border-white/20 rounded-xl cursor-pointer hover:border-primary/50 hover:scale-[1.02] hover:shadow-crimson-glow transition-all">
+            <motion.div variants={slideUpVariant} className="glass-card-interactive p-8 rounded-2xl bg-gradient-to-br from-rose-500/10 to-crimson-700/5 border border-rose-500/20">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-rose-600 to-crimson-700 flex items-center justify-center">
+                  <Upload className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-white">Upload Medical Reports</h2>
+                  <p className="text-rose-400 text-xs">PDF or images (MRI, X-rays) for your doctor</p>
+                </div>
+              </div>
+              <label className="flex items-center justify-center w-full p-8 border-2 border-dashed border-rose-500/30 rounded-xl cursor-pointer hover:border-rose-500 hover:bg-rose-500/10 transition-all group">
                 <input type="file" accept="image/*,.pdf" onChange={handleUpload} className="hidden" disabled={uploading} />
                 <div className="text-center">
-                  <Upload className="w-12 h-12 mx-auto mb-3 text-slate-400" />
-                  <p className="text-slate-300 font-medium">
-                    {uploading ? 'Uploading...' : 'Click to upload files'}
-                  </p>
-                  <p className="text-slate-500 text-sm mt-1">PDF or Images (MRI, X-rays)</p>
+                  {uploading ? (
+                    <>
+                      <div className="w-8 h-8 mx-auto mb-3 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+                      <p className="text-rose-300 font-medium">Uploading...</p>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-12 h-12 mx-auto mb-3 text-rose-400 group-hover:text-rose-300 transition-colors" />
+                      <p className="text-rose-200 font-medium">Click to upload files</p>
+                      <p className="text-slate-500 text-sm mt-1">PDF, JPG, PNG (Max 10MB)</p>
+                    </>
+                  )}
                 </div>
               </label>
             </motion.div>
@@ -388,6 +460,9 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
 
       <div className="flex-1 flex flex-col min-h-screen bg-slate-950">
         <header className="glass-card border-t-0 border-x-0 rounded-none px-4 py-4 flex items-center justify-between bg-black/10">
+          <div className="flex items-center gap-3">
+            <Logo width={120} height={36} className="cursor-pointer" onClick={() => setActiveView('overview')} />
+          </div>
           <button
             onClick={() => setSidebarOpen(true)}
             className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
@@ -444,7 +519,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
           </motion.div>
         )}
 
-        <main className="flex-1 max-w-7xl mx-auto px-4 py-6 overflow-x-hidden">
+        <main className="flex-1 max-w-3xl mx-auto px-4 py-6 overflow-x-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeView}
@@ -452,6 +527,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.2 }}
+              className="w-full"
             >
               {renderContent()}
             </motion.div>

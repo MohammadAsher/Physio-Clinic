@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Sun, Moon, CloudSun } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 interface SmartGreetingProps {
   name: string;
@@ -10,9 +10,15 @@ interface SmartGreetingProps {
 }
 
 export default function SmartGreeting({ name, className = '' }: SmartGreetingProps) {
-  // Fix: Yahan key names ko match kar diya gaya hai
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 30 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const { timeOfDay, Icon, accentColor, glowColor } = useMemo(() => {
-    const hour = new Date().getHours();
+    const hour = currentTime.getHours();
     
     if (hour >= 5 && hour < 12) {
       return {
@@ -36,7 +42,7 @@ export default function SmartGreeting({ name, className = '' }: SmartGreetingPro
         glowColor: 'shadow-indigo-500/20',
       };
     }
-  }, []);
+  }, [currentTime]);
 
   return (
     <motion.div

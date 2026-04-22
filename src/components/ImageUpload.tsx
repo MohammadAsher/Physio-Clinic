@@ -1,20 +1,19 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, Upload, X, Loader2, Check } from 'lucide-react';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '@/lib/firebase';
+import { Camera, Upload, X, Loader2 } from 'lucide-react';
 
 interface ImageUploadProps {
   currentImage?: string;
   userId: string;
-  onImageUpload: (url: string) => void;
+  onImageUpload: (base64: string) => void;
   size?: 'sm' | 'md' | 'lg';
 }
 
 export default function ImageUpload({ currentImage, userId, onImageUpload, size = 'md' }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentImage || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -30,40 +29,46 @@ export default function ImageUpload({ currentImage, userId, onImageUpload, size 
     lg: 'w-8 h-8'
   };
 
-  const compressImage = (file: File): Promise<Blob> => {
-    return new Promise((resolve) => {
+  useEffect(() => {
+    setPreview(currentImage || null);
+  }, [currentImage]);
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-          const maxSize = 500;
-
-          if (width > height) {
-            if (width > maxSize) {
-              height = (height * maxSize) / width;
-              width = maxSize;
-            }
-          } else {
-            if (height > maxSize) {
-              width = (width * maxSize) / height;
-              height = maxSize;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(img, 0, 0, width, height);
-          canvas.toBlob((blob) => {
-            resolve(blob!);
-          }, 'image/jpeg', 0.8);
-        };
-        img.src = e.target?.result as string;
-      };
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
       reader.readAsDataURL(file);
+    });
+  };
+
+  const resizeImage = async (base64: string, maxSize: number = 500): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = base64;
     });
   };
 
@@ -76,22 +81,26 @@ export default function ImageUpload({ currentImage, userId, onImageUpload, size 
       return;
     }
 
+    console.log('Processing image:', file.name, file.size);
     setUploading(true);
+    setProcessing(true);
+
     try {
-      const compressedBlob = await compressImage(file);
-      const timestamp = Date.now();
-      const fileRef = ref(storage, `profilePictures/${userId}/${timestamp}.jpg`);
-
-      await uploadBytes(fileRef, compressedBlob);
-      const downloadUrl = await getDownloadURL(fileRef);
-
-      setPreview(downloadUrl);
-      onImageUpload(downloadUrl);
+      const base64 = await fileToBase64(file);
+      console.log('Converting to optimized Base64...');
+      
+      const optimizedBase64 = await resizeImage(base64, 400);
+      console.log('Base64 generated, length:', optimizedBase64.length);
+      
+      setPreview(optimizedBase64);
+      onImageUpload(optimizedBase64);
+      console.log('Image upload successful!');
     } catch (error) {
-      console.error('Error uploading image:', error);
-      alert('Failed to upload image');
+      console.error('Error processing image:', error);
+      alert('Failed to process image');
     } finally {
       setUploading(false);
+      setProcessing(false);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -114,11 +123,14 @@ export default function ImageUpload({ currentImage, userId, onImageUpload, size 
         accept="image/*"
         onChange={handleFileChange}
         className="hidden"
+        disabled={uploading}
       />
 
-      <div
-        onClick={() => fileInputRef.current?.click()}
-        className={`${sizeClasses[size]} rounded-full overflow-hidden border-2 border-white/20 cursor-pointer hover:border-primary hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] transition-colors`}
+      <motion.div
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => !uploading && fileInputRef.current?.click()}
+        className={`${sizeClasses[size]} rounded-full overflow-hidden border-2 border-white/20 cursor-pointer hover:border-rose-500 hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] transition-all`}
       >
         {preview ? (
           <img
@@ -127,15 +139,18 @@ export default function ImageUpload({ currentImage, userId, onImageUpload, size 
             className="w-full h-full object-cover"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center">
+          <div className="w-full h-full bg-gradient-to-br from-rose-600 to-crimson-700 flex items-center justify-center">
             <Camera className={`${iconSizes[size]} text-white`} />
           </div>
         )}
-      </div>
+      </motion.div>
 
-      {uploading && (
-        <div className={`absolute inset-0 ${sizeClasses[size]} rounded-full bg-black/60 flex items-center justify-center`}>
-          <Loader2 className={`${iconSizes[size]} text-white animate-spin`} />
+      {(uploading || processing) && (
+        <div className={`absolute inset-0 ${sizeClasses[size]} rounded-full bg-black/70 flex items-center justify-center backdrop-blur-sm`}>
+          <div className="text-center">
+            <Loader2 className={`${iconSizes[size]} text-white animate-spin mx-auto mb-1`} />
+            <p className="text-white text-xs">Processing...</p>
+          </div>
         </div>
       )}
 
@@ -145,7 +160,7 @@ export default function ImageUpload({ currentImage, userId, onImageUpload, size 
             e.stopPropagation();
             handleRemove();
           }}
-              className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] transition-colors"
+          className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 hover:scale-110 transition-all shadow-lg"
         >
           <X className="w-3 h-3" />
         </button>

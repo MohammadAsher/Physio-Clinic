@@ -1,8 +1,9 @@
 'use client';
 
-import { useRef } from 'react';
-import { motion, useScroll, useTransform, useInView } from 'framer-motion';
-import { Activity, Heart, Brain, Baby, Dumbbell, Bone, ArrowRight, CheckCircle, Clock, Calendar } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion';
+import { Activity, Heart, Brain, Baby, Dumbbell, Bone, ArrowRight, CheckCircle, Clock, Calendar, X, UserCircle, Award, CalendarCheck, Sparkles } from 'lucide-react';
+import Logo from './Logo';
 
 interface DoctorData {
   id: string;
@@ -212,25 +213,41 @@ function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctor
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-slate-900/50" />
       </motion.div>
 
+      <motion.nav 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4"
+      >
+        <div className="flex items-center gap-3">
+          <Logo width={180} height={56} className="cursor-pointer" />
+          <span className="text-rose-400 text-xs font-medium tracking-widest">DEAR PAIN! LET'S BREAKUP</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={onLogin}
+            className="px-4 py-2 text-sm text-slate-300 hover:text-white transition-colors"
+          >
+            Sign In
+          </button>
+          <button 
+            onClick={onSignup}
+            className="px-4 py-2 bg-gradient-to-r from-rose-600 to-crimson-700 text-white text-sm font-medium rounded-lg"
+          >
+            Get Started
+          </button>
+        </div>
+      </motion.nav>
+
       <motion.div style={{ opacity }} className="relative z-10 max-w-6xl mx-auto px-4 py-20 text-center">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
-          <span className="inline-block px-4 py-2 rounded-full glass-card text-sm text-slate-300 mb-6">
-            Dear Pain! Let's Breakup
-          </span>
+          <h1 className="text-5xl md:text-7xl font-bold mb-4 bg-gradient-to-r from-rose-400 via-rose-500 to-crimson-500 bg-clip-text text-transparent">
+            Body Experts
+          </h1>
         </motion.div>
-
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="text-5xl md:text-7xl font-bold mb-6"
-        >
-          <span className="text-gold">Body Experts</span>
-        </motion.h1>
 
         <motion.p
           initial={{ opacity: 0, y: 30 }}
@@ -248,19 +265,19 @@ function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctor
           className="flex flex-col sm:flex-row gap-4 justify-center"
         >
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.05, boxShadow: '0 8px 32px rgba(225, 29, 72, 0.4)' }}
             whileTap={{ scale: 0.95 }}
             onClick={onSignup}
-            className="glass-button px-8 py-4 text-lg flex items-center justify-center gap-2"
+            className="px-8 py-4 text-lg flex items-center justify-center gap-2 bg-gradient-to-r from-rose-600 to-crimson-700 text-white font-bold rounded-2xl shadow-lg shadow-rose-900/30 backdrop-blur-xl border border-white/10 hover:border-rose-500/30 transition-all"
           >
             Get Started
             <ArrowRight className="w-5 h-5" />
           </motion.button>
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.05, boxShadow: '0 8px 32px rgba(255, 255, 255, 0.1)' }}
             whileTap={{ scale: 0.95 }}
             onClick={onLogin}
-            className="glass-button secondary px-8 py-4 text-lg"
+            className="px-8 py-4 text-lg bg-white/5 text-white font-bold rounded-2xl border border-white/10 backdrop-blur-xl shadow-lg hover:border-white/20 transition-all"
           >
             Sign In
           </motion.button>
@@ -475,11 +492,9 @@ function Footer() {
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl premium-gradient flex items-center justify-center">
-              <Activity className="w-5 h-5 text-white" />
-            </div>
+            <Logo width={40} height={40} className="rounded-lg" />
             <div>
-              <h3 className="text-white font-semibold">Body Experts</h3>
+              <Logo width={100} height={24} />
               <p className="text-slate-400 text-sm">Dear Pain! Let's Breakup</p>
             </div>
           </div>
@@ -498,6 +513,7 @@ interface LandingPageProps {
 }
 
 export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageProps) {
+  const [selectedDoctor, setSelectedDoctor] = useState<DoctorData | null>(null);
   const displayedDoctors = doctors && doctors.length > 0 ? doctors : DUMMY_DOCTORS;
 
   return (
@@ -525,17 +541,21 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="glass-card p-6 rounded-2xl hover:scale-105 transition-transform"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setSelectedDoctor(doctor)}
+                className="group relative p-6 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 hover:border-rose-500/30 hover:shadow-lg hover:shadow-rose-500/10 transition-all duration-300 cursor-pointer overflow-hidden"
               >
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-full premium-gradient flex items-center justify-center">
+                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative flex items-center gap-4 mb-4">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-600 to-crimson-700 flex items-center justify-center border border-white/10 shadow-lg shadow-rose-900/20">
                     <span className="text-white font-bold text-xl">
                       {doctor.name.split(' ')[1]?.charAt(0) || doctor.name.charAt(0)}
                     </span>
                   </div>
                   <div>
                     <h3 className="text-white font-semibold text-lg">{doctor.name}</h3>
-                    <p className="text-primary text-sm">{doctor.doctorProfile?.specialization}</p>
+                    <p className="text-rose-400 text-sm">{doctor.doctorProfile?.specialization}</p>
                   </div>
                 </div>
                 <p className="text-slate-400 text-sm mb-3">{doctor.doctorProfile?.education}</p>
@@ -552,6 +572,99 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
           </div>
         </motion.div>
       </div>
+
+      <AnimatePresence>
+        {selectedDoctor && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', duration: 0.6, bounce: 0.2 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#111] to-black border border-white/10 shadow-2xl"
+            >
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 bg-rose-500/10 blur-3xl pointer-events-none" />
+              
+              <button
+                onClick={() => setSelectedDoctor(null)}
+                className="absolute top-4 right-4 p-2 rounded-full bg-white/10 border border-white/10 hover:bg-white/20 transition-all z-10"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+
+              <div className="relative p-8">
+                <div className="flex flex-col items-center text-center mb-6">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+                    className="w-28 h-28 mb-4 rounded-2xl bg-gradient-to-br from-rose-600 to-crimson-700 flex items-center justify-center border border-white/10 shadow-lg shadow-rose-900/30"
+                  >
+                    <span className="text-white font-bold text-4xl">
+                      {selectedDoctor.name.split(' ')[1]?.charAt(0) || selectedDoctor.name.charAt(0)}
+                    </span>
+                  </motion.div>
+                  <h2 className="text-2xl font-bold text-white mb-1">{selectedDoctor.name}</h2>
+                  <p className="text-rose-400 font-medium">{selectedDoctor.doctorProfile?.specialization}</p>
+                </div>
+
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
+                    <Award className="w-5 h-5 text-rose-400" />
+                    <div className="text-left">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Education</p>
+                      <p className="text-white text-sm">{selectedDoctor.doctorProfile?.education}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
+                    <UserCircle className="w-5 h-5 text-rose-400" />
+                    <div className="text-left">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Experience</p>
+                      <p className="text-white text-sm">{selectedDoctor.doctorProfile?.experience}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
+                    <CalendarCheck className="w-5 h-5 text-rose-400" />
+                    <div className="text-left">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Availability</p>
+                      <p className="text-white text-sm">{selectedDoctor.doctorProfile?.availableDays?.join(', ')}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
+                    <Clock className="w-5 h-5 text-rose-400" />
+                    <div className="text-left">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Timings</p>
+                      <p className="text-white text-sm">{selectedDoctor.doctorProfile?.timings}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02, boxShadow: '0 8px 32px rgba(225, 29, 72, 0.4)' }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setSelectedDoctor(null);
+                    onSignup();
+                  }}
+                  className="w-full py-4 bg-gradient-to-r from-rose-600 to-crimson-700 text-white font-bold rounded-2xl shadow-lg shadow-rose-900/30 border border-white/10 flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  Book Appointment
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

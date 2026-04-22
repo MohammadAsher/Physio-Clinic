@@ -34,10 +34,18 @@ interface DailyTipProps {
 export default function DailyTip({ className = '' }: DailyTipProps) {
   const [currentTipIndex, setCurrentTipIndex] = useState(0);
 
-  // Get random tip on mount
+  // Get one tip per day using localStorage
   useEffect(() => {
-    const randomIndex = Math.floor(Math.random() * PHYSIOTHERAPY_TIPS.length);
-    setCurrentTipIndex(randomIndex);
+    const today = new Date().toDateString();
+    const storedDate = localStorage.getItem('dailyTipDate');
+    let storedIndex = parseInt(localStorage.getItem('dailyTipIndex') || '0', 10);
+    
+    if (storedDate !== today) {
+      storedIndex = Math.floor(Math.random() * PHYSIOTHERAPY_TIPS.length);
+      localStorage.setItem('dailyTipDate', today);
+      localStorage.setItem('dailyTipIndex', storedIndex.toString());
+    }
+    setCurrentTipIndex(storedIndex);
   }, []);
 
   const nextTip = () => {

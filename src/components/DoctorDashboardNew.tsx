@@ -4,16 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Clock, Activity, CheckCircle, ChevronRight, X, 
-  Calendar, MapPin, FileText, Upload, UserCircle, File, Image, Loader2
+  Calendar, MapPin, FileText, UserCircle, File, Image
 } from 'lucide-react';
 import { DoctorView, PatientReport } from '@/types';
 import { db, storage } from '@/lib/firebase';
 import { 
-  collection, 
   doc, 
   updateDoc, 
-  onSnapshot,
-  addDoc
+  onSnapshot
 } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import ImageUpload from './ImageUpload';
@@ -37,35 +35,116 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
 
   // Reports State
   const [patientReports, setPatientReports] = useState<PatientReport[]>([]);
-  const [uploadingReport, setUploadingReport] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Profile Data State
+  const [currentStep, setCurrentStep] = useState(1);
   const [profileData, setProfileData] = useState({
     education: user?.doctorProfile?.education || '',
+    educationCertificate: user?.doctorProfile?.educationCertificate || '',
     experience: user?.doctorProfile?.experience || '',
     specialization: user?.doctorProfile?.specialization || '',
-    timings: user?.doctorProfile?.timings || '9:00 AM - 5:00 PM',
+    availableDays: user?.doctorProfile?.availableDays || [],
+    startTime: user?.doctorProfile?.startTime || '9:00 AM',
+    endTime: user?.doctorProfile?.endTime || '5:00 PM',
   });
+  const [uploadingCert, setUploadingCert] = useState(false);
+  const [certUploadProgress, setCertUploadProgress] = useState(0);
+
+  const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const timeOptions = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM'];
+
+  const isStep1Complete = !!profileImage && !!profileData.education && !!profileData.educationCertificate;
+  const isStep2Complete = !!profileData.specialization && !!profileData.experience;
+  const isStep3Complete = profileData.availableDays.length > 0 && !!profileData.startTime && !!profileData.endTime;
+  const canSubmit = isStep1Complete && isStep2Complete && isStep3Complete;
+
+  const certInputRef = useRef<HTMLInputElement>(null);
+  const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
+  
+  const handleDegreeCertUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.id) return;
+    if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
+      alert('Please upload a PDF or image file (JPG, PNG)');
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      alert('File size must be less than 2MB');
+      return;
+    }
+
+    console.log('Certificate Upload Started:', file.name, file.size, file.type);
+    setUploadingCert(true);
+    setCertUploadProgress(0);
+
+    try {
+      const fileName = `certificates/${user.id}/education_${Date.now()}_${file.name}`;
+      console.log('Creating storage reference:', fileName);
+      const fileRef = ref(storage, fileName);
+      
+      console.log('Starting upload task...');
+      const uploadTask = uploadBytesResumable(fileRef, file);
+      
+      await new Promise<void>((resolve, reject) => {
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log('Upload Progress:', Math.round(progress) + '%');
+            setCertUploadProgress(progress);
+          },
+          (error) => {
+            console.error('Upload Error:', error);
+            alert('Upload failed. Please try again.');
+            reject(error);
+          },
+          async () => {
+            console.log('Upload complete, getting download URL...');
+            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+            console.log('Download URL received:', downloadUrl);
+            setProfileData({ ...profileData, educationCertificate: downloadUrl });
+            resolve();
+          }
+        );
+      });
+      console.log('Certificate upload successful!');
+    } catch (err) {
+      console.error('Error uploading certificate:', err);
+      alert('Upload failed. Please try again.');
+    }
+    setUploadingCert(false);
+    if (certInputRef.current) {
+      certInputRef.current.value = '';
+    }
+  };
+
+  const toggleDay = (day: string) => {
+    const newDays = profileData.availableDays.includes(day)
+      ? profileData.availableDays.filter(d => d !== day)
+      : [...profileData.availableDays, day];
+    setProfileData({ ...profileData, availableDays: newDays });
+  };
 
   // Profile status check
   const isProfileComplete = !!(user?.doctorProfile?.education && user?.doctorProfile?.specialization);
 
-  // Fetch patient reports in real-time
+  // Fetch patient reports from their document's reports array
   useEffect(() => {
     const patientId = selectedPatient?.id || selectedPatient?.userId;
     if (patientId) {
-      const reportsRef = collection(db, 'users', patientId, 'reports');
-      const unsubscribe = onSnapshot(reportsRef, (snapshot) => {
-        const reports: PatientReport[] = snapshot.docs.map(doc => ({
-          id: doc.id,
-          fileName: doc.data().fileName,
-          fileUrl: doc.data().fileUrl,
-          fileType: doc.data().fileType,
-          uploadedAt: doc.data().uploadedAt?.toDate() || new Date()
-        }));
-        setPatientReports(reports);
+      setPatientReports(selectedPatient?.reports || []);
+      const unsubscribe = onSnapshot(doc(db, 'users', patientId), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const reports: PatientReport[] = (data?.reports || []).map((r: any, index: number) => ({
+            id: `report-${index}`,
+            fileName: r.fileName,
+            fileUrl: r.fileUrl,
+            fileType: r.fileType,
+            uploadedAt: r.uploadedAt?.toDate() || r.uploadedAt || new Date()
+          }));
+          setPatientReports(reports);
+        }
       });
       return () => unsubscribe();
     } else {
@@ -85,73 +164,26 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
     try {
       const updateData = {
         profileCompleted: true,
-        doctorProfile: { ...profileData },
+        doctorProfile: { 
+          education: profileData.education,
+          educationCertificate: profileData.educationCertificate,
+          specialization: profileData.specialization,
+          experience: profileData.experience,
+          availableDays: profileData.availableDays,
+          startTime: profileData.startTime,
+          endTime: profileData.endTime,
+          timings: `${profileData.startTime} - ${profileData.endTime}`
+        },
         profilePicture: profileImage,
         avatar: profileImage
       };
       await updateDoc(doc(db, 'users', user.id), updateData);
       setShowProfileModal(false);
-      // Show success toast instead of alert in production
       console.log("Profile updated successfully");
     } catch (err) {
       console.error('Error:', err);
     }
     setSavingProfile(false);
-  };
-
-  // Doctor uploads report for patient
-  const handleReportUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    const patientId = selectedPatient?.id || selectedPatient?.userId;
-    if (!file || !patientId) return;
-
-    setUploadingReport(true);
-    setUploadProgress(0);
-
-    try {
-      const timestamp = Date.now();
-      const fileName = `${timestamp}_${file.name}`;
-      const fileRef = ref(storage, `reports/${patientId}/${fileName}`);
-
-      // Upload with progress tracking using resumable upload
-      const uploadTask = uploadBytesResumable(fileRef, file);
-
-      await new Promise<void>((resolve, reject) => {
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            setUploadProgress(progress);
-          },
-          (error) => {
-            console.error('Upload error:', error);
-            reject(error);
-          },
-          async () => {
-            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-            const fileType = file.type.startsWith('image/') ? 'image' : 'pdf';
-
-            await addDoc(collection(db, 'users', patientId, 'reports'), {
-              fileName: file.name,
-              fileUrl: downloadUrl,
-              fileType,
-              uploadedAt: new Date(),
-              uploadedBy: user.name,
-              doctorId: user.id
-            });
-            resolve();
-          }
-        );
-      });
-
-      setUploadProgress(0);
-    } catch (err) {
-      console.error('Error uploading report:', err);
-    }
-    setUploadingReport(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
   };
 
   return (
@@ -284,13 +316,13 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                            {selectedPatient.medicalCondition || 'General Consultation'}
                          </p>
                        </div>
-                       <motion.button
-                         whileHover={{ scale: 1.03, boxShadow: '0 8px 24px rgba(220,38,38,0.4)' }}
-                         whileTap={{ scale: 0.97 }}
-                         className="px-6 py-3 bg-gradient-to-r from-rose-600 to-rose-500 rounded-xl text-xs font-bold shadow-lg shadow-rose-900/30 transition-all uppercase tracking-wider"
-                       >
-                         Start Session
-                       </motion.button>
+<motion.button
+                          whileHover={{ scale: 1.03, boxShadow: '0 8px 32px rgba(225, 29, 72, 0.4)' }}
+                          whileTap={{ scale: 0.97 }}
+                          className="px-6 py-3 bg-gradient-to-r from-rose-600 to-crimson-700 rounded-xl text-xs font-bold shadow-lg shadow-rose-900/30 backdrop-blur-xl border border-white/10 transition-all uppercase tracking-wider"
+                        >
+                          Start Session
+                        </motion.button>
                      </div>
 
                      {/* Reports Section - Ultra Luxury */}
@@ -364,67 +396,7 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                              <FileText className="w-12 h-12 mx-auto mb-4 text-slate-600" />
                              <p className="text-sm text-slate-500">No reports uploaded yet</p>
                            </motion.div>
-                         )}
-                       </div>
-
-                       {/* Upload Section */}
-                       <div className="relative">
-                         <input
-                           id="doctor-report-upload"
-                           ref={fileInputRef}
-                           type="file"
-                           accept="image/*,.pdf,.png,.jpg,.jpeg"
-                           onChange={handleReportUpload}
-                           className="hidden"
-                           disabled={uploadingReport}
-                         />
-                         
-                         {!uploadingReport ? (
-                           <motion.label
-                             whileHover={{ scale: 1.01 }}
-                             whileTap={{ scale: 0.99 }}
-                             htmlFor="doctor-report-upload"
-                             className="flex items-center justify-center w-full p-6 border-2 border-dashed border-rose-500/30 rounded-2xl cursor-pointer hover:border-rose-500 hover:bg-rose-500/5 transition-all group"
-                           >
-                             <div className="text-center">
-                               <div className="relative mb-2">
-                                 <Upload className="w-8 h-8 mx-auto text-rose-400 group-hover:text-rose-300 transition-colors" />
-                               </div>
-                               <p className="text-sm font-semibold text-rose-200">
-                                 Upload Medical Report
-                               </p>
-                               <p className="text-xs text-slate-500 mt-1">
-                                 PDF, JPG, PNG (Maximum 10MB)
-                               </p>
-                             </div>
-                           </motion.label>
-                         ) : (
-                           <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/20">
-                             <div className="flex items-center gap-4">
-                               <div className="relative w-10 h-10">
-                                 <motion.div
-                                   animate={{ rotate: 360 }}
-                                   transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                   className="w-full h-full rounded-full border-2 border-rose-500/30 border-t-rose-500"
-                                 />
-                                 <Loader2 className="w-5 h-5 absolute inset-0 m-auto text-rose-400 animate-pulse" />
-                               </div>
-                               <div className="flex-1">
-                                 <p className="text-sm font-semibold text-rose-200 mb-2">
-                                   Uploading... {Math.round(uploadProgress)}%
-                                 </p>
-                                 <div className="h-2 bg-rose-500/20 rounded-full overflow-hidden">
-                                   <motion.div
-                                     initial={{ width: 0 }}
-                                     animate={{ width: `${uploadProgress}%` }}
-                                     transition={{ duration: 0.3 }}
-                                     className="h-full bg-gradient-to-r from-rose-500 to-rose-400 rounded-full"
-                                   />
-                                 </div>
-                               </div>
-                             </div>
-                           </div>
-                         )}
+)}
                         </div>
                       </motion.div>
                     </motion.div>
@@ -439,7 +411,7 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
         </main>
       </div>
 
-      {/* Profile Completion Modal - Ultra Luxury */}
+      {/* Profile Completion Modal - Multi-Step Ultra Luxury */}
       <AnimatePresence>
         {showProfileModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
@@ -450,104 +422,284 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
               transition={{ type: 'spring', duration: 0.6, bounce: 0.2 }}
               className="w-full max-w-lg relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#111] to-black border border-white/10 shadow-2xl"
             >
-              {/* Ambient decoration */}
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 bg-rose-500/10 blur-3xl pointer-events-none" />
               
               <div className="relative p-8">
-                {/* Gold-Embossed Header */}
-                <div className="text-center mb-8">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-                    className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-gold/20 to-rose-500/20 border border-gold/30 flex items-center justify-center shadow-lg shadow-gold/10"
-                  >
+                <div className="text-center mb-6">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-gold/20 to-rose-500/20 border border-gold/30 flex items-center justify-center shadow-lg shadow-gold/10">
                     <UserCircle className="w-10 h-10 text-gold" />
-                  </motion.div>
+                  </div>
                   <h2 className="text-2xl font-bold bg-gold-gradient bg-clip-text text-transparent">
                     Complete Your Profile
                   </h2>
                   <p className="text-slate-400 text-sm mt-2">
-                    Build trust with your patients by sharing your credentials
+                    Step {currentStep} of 3: {currentStep === 1 ? 'Education & Credentials' : currentStep === 2 ? 'Specialization & Experience' : 'Availability'}
                   </p>
                 </div>
 
-                <div className="space-y-5">
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2 }}
-                  >
-                    <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
-                      Education
-                    </label>
-                    <input 
-                      type="text" 
-                      value={profileData.education}
-                      onChange={(e) => setProfileData({...profileData, education: e.target.value})}
-                      placeholder="e.g. MBBS, DPT from Dow University"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-white placeholder:text-slate-600"
-                    />
-                  </motion.div>
-                  
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3 }}
-                  >
-                    <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
-                      Specialization
-                    </label>
-                    <input 
-                      type="text" 
-                      value={profileData.specialization}
-                      onChange={(e) => setProfileData({...profileData, specialization: e.target.value})}
-                      placeholder="e.g. Orthopedic Physiotherapist"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-white placeholder:text-slate-600"
-                    />
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.4 }}
-                  >
-                    <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
-                      Years of Experience
-                    </label>
-                    <input 
-                      type="text" 
-                      value={profileData.experience}
-                      onChange={(e) => setProfileData({...profileData, experience: e.target.value})}
-                      placeholder="e.g. 5+ Years"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-white placeholder:text-slate-600"
-                    />
-                  </motion.div>
-
-                  <motion.button
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                    whileHover={{ scale: 1.01, boxShadow: '0 8px 32px rgba(220, 38, 38, 0.3)' }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleSaveProfile}
-                    disabled={savingProfile}
-                    className="w-full py-4 mt-2 bg-gradient-to-r from-rose-600 to-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-rose-900/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-wider text-sm"
-                  >
-                    {savingProfile ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <motion.div
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-                          className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
-                        />
-                        Saving...
-                      </span>
-                    ) : (
-                      'Save Profile'
-                    )}
-                  </motion.button>
+                <div className="flex justify-center gap-2 mb-6">
+                  {[1, 2, 3].map((step) => (
+                    <div key={step} className={`w-3 h-3 rounded-full transition-all ${currentStep === step ? 'bg-rose-500 w-8' : currentStep > step ? 'bg-rose-500/50' : 'bg-white/20'}`} />
+                  ))}
                 </div>
+
+                <AnimatePresence mode="wait">
+                  {currentStep === 1 && (
+                    <motion.div
+                      key="step1"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-5"
+                    >
+                      <div>
+                        <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
+                          Profile Picture
+                        </label>
+                        <div className="flex justify-center mb-4">
+                          <ImageUpload
+                            currentImage={profileImage}
+                            userId={user?.id || ''}
+                            onImageUpload={(url) => setProfileImage(url)}
+                            size="lg"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
+                          Education Degree
+                        </label>
+                        <input 
+                          type="text" 
+                          value={profileData.education}
+                          onChange={(e) => setProfileData({...profileData, education: e.target.value})}
+                          placeholder="e.g. MBBS, DPT from Dow University"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-white placeholder:text-slate-600"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
+                          Degree Certificate
+                        </label>
+                        <input
+                          ref={certInputRef}
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={handleDegreeCertUpload}
+                          className="hidden"
+                        />
+                        {!profileData.educationCertificate ? (
+                          <motion.label
+                            whileHover={{ scale: 1.01 }}
+                            whileTap={{ scale: 0.99 }}
+                            onClick={() => !uploadingCert && certInputRef.current?.click()}
+                            className={`flex items-center justify-center w-full p-4 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
+                              uploadingCert 
+                                ? 'border-rose-500/30 bg-rose-500/5' 
+                                : 'border-rose-500/30 hover:border-rose-500 hover:bg-rose-500/5'
+                            }`}
+                          >
+                            <div className="text-center w-full">
+                              {uploadingCert ? (
+                                <>
+                                  <div className="flex items-center justify-center gap-2 mb-2">
+                                    <div className="w-5 h-5 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+                                    <span className="text-xs text-rose-200">Uploading... {Math.round(certUploadProgress)}%</span>
+                                  </div>
+                                  <div className="w-full h-2 bg-rose-500/20 rounded-full overflow-hidden">
+                                    <div 
+                                      className="h-full bg-gradient-to-r from-rose-500 to-rose-400 rounded-full transition-all duration-300"
+                                      style={{ width: `${certUploadProgress}%` }}
+                                    />
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <File className="w-6 h-6 mx-auto mb-2 text-rose-400" />
+                                  <p className="text-xs text-rose-200">Upload Certificate (JPG, PNG, PDF - Max 2MB)</p>
+                                </>
+                              )}
+                            </div>
+                          </motion.label>
+                        ) : (
+                          <div className="flex items-center justify-between p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl">
+                            <div className="flex items-center gap-3">
+                              <File className="w-6 h-6 text-rose-400" />
+                              <span className="text-sm text-rose-200">Certificate Uploaded</span>
+                            </div>
+                            <button 
+                              onClick={() => setProfileData({...profileData, educationCertificate: ''})}
+                              className="text-xs text-rose-400 hover:text-rose-300"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <motion.button
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setCurrentStep(2)}
+                        disabled={!isStep1Complete}
+                        className="w-full py-4 bg-gradient-to-r from-rose-600 to-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-rose-900/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-wider text-sm"
+                      >
+                        Next: Specialization
+                      </motion.button>
+                    </motion.div>
+                  )}
+
+                  {currentStep === 2 && (
+                    <motion.div
+                      key="step2"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-5"
+                    >
+                      <div>
+                        <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
+                          Specialization
+                        </label>
+                        <input 
+                          type="text" 
+                          value={profileData.specialization}
+                          onChange={(e) => setProfileData({...profileData, specialization: e.target.value})}
+                          placeholder="e.g. Orthopedic Physiotherapist"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-white placeholder:text-slate-600"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
+                          Years of Experience
+                        </label>
+                        <input 
+                          type="text" 
+                          value={profileData.experience}
+                          onChange={(e) => setProfileData({...profileData, experience: e.target.value})}
+                          placeholder="e.g. 5+ Years"
+                          className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-white placeholder:text-slate-600"
+                        />
+                      </div>
+
+                      <div className="flex gap-3">
+                        <motion.button
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setCurrentStep(1)}
+                          className="flex-1 py-4 bg-white/10 text-white font-bold rounded-2xl border border-white/10 transition-all uppercase tracking-wider text-sm"
+                        >
+                          Back
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setCurrentStep(3)}
+                          disabled={!isStep2Complete}
+                          className="flex-1 py-4 bg-gradient-to-r from-rose-600 to-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-rose-900/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-wider text-sm"
+                        >
+                          Next: Availability
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {currentStep === 3 && (
+                    <motion.div
+                      key="step3"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      className="space-y-5"
+                    >
+                      <div>
+                        <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
+                          Working Days
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {daysOfWeek.map((day) => (
+                            <button
+                              key={day}
+                              onClick={() => toggleDay(day)}
+                              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                                profileData.availableDays.includes(day)
+                                  ? 'bg-rose-500 text-white shadow-lg shadow-rose-900/30'
+                                  : 'bg-white/5 text-slate-400 border border-white/10 hover:border-rose-500/30'
+                              }`}
+                            >
+                              {day}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
+                          Timings
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1">
+                            <select
+                              value={profileData.startTime}
+                              onChange={(e) => setProfileData({...profileData, startTime: e.target.value})}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-white"
+                            >
+                              {timeOptions.map((time) => (
+                                <option key={time} value={time} className="bg-black text-white">{time}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <span className="text-slate-400">to</span>
+                          <div className="flex-1">
+                            <select
+                              value={profileData.endTime}
+                              onChange={(e) => setProfileData({...profileData, endTime: e.target.value})}
+                              className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 outline-none transition-all text-white"
+                            >
+                              {timeOptions.map((time) => (
+                                <option key={time} value={time} className="bg-black text-white">{time}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <motion.button
+                          whileHover={{ scale: 1.01 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => setCurrentStep(2)}
+                          className="flex-1 py-4 bg-white/10 text-white font-bold rounded-2xl border border-white/10 transition-all uppercase tracking-wider text-sm"
+                        >
+                          Back
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.01, boxShadow: '0 8px 32px rgba(220, 38, 38, 0.3)' }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={handleSaveProfile}
+                          disabled={savingProfile || !canSubmit}
+                          className="flex-1 py-4 bg-gradient-to-r from-rose-600 to-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-rose-900/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-wider text-sm"
+                        >
+                          {savingProfile ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                                className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                              />
+                              Saving...
+                            </span>
+                          ) : (
+                            'Submit Profile'
+                          )}
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </motion.div>
           </div>
