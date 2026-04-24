@@ -7,7 +7,7 @@ export interface User {
   avatar?: string;
   profilePicture?: string;
   createdAt: Date;
-  status?: 'unassigned' | 'assigned';
+  status?: 'unassigned' | 'assigned' | 'waiting' | 'consulting' | 'completed';
   assignedDoctorId?: string;
   assignedDoctorName?: string;
   isMember?: boolean;
@@ -32,6 +32,7 @@ export interface User {
     profilePicture?: string;
   };
   appointments?: Appointment[];
+  reports?: any[]; // Base64 medical reports
 }
 
 export interface Appointment {

@@ -19,13 +19,9 @@ export default function LoginPage({ onLogin, onBack }: LoginPageProps) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="glass-card border-b-0 border-x-0 rounded-none px-6 py-4">
-        <div className="max-w-md mx-auto flex items-center gap-3">
-          <Logo width={40} height={40} className="rounded-lg" />
-          <div>
-            <Logo width={120} height={28} />
-            <p className="text-slate-400 text-xs">Dear Pain! Let's Breakup</p>
-          </div>
+      <header className="glass-card border-b-0 border-x-0 rounded-none px-6 py-8">
+        <div className="max-w-md mx-auto flex flex-col items-center gap-2">
+          <Logo width={180} height={60} showTagline={true} />
         </div>
       </header>
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Dumbbell, CreditCard, TrendingUp, LogOut, Menu, X, UserCheck, FileText, Upload, Image, File, Copy, Check, Sparkles, Crown, UserPlus, Calculator } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, CreditCard, TrendingUp, LogOut, UserCheck, FileText, Upload, Image, File, Copy, Check, Sparkles, Crown, UserPlus, X } from 'lucide-react';
 import { User, PatientView } from '@/types';
 import Logo from './Logo';
 import PatientOverview from './PatientOverview';
@@ -15,6 +15,7 @@ import ImageUpload from './ImageUpload';
 import SmartGreeting from './SmartGreeting';
 import DailyTip from './DailyTip';
 import MedicalEmptyState from './MedicalEmptyState';
+import FileViewerModal from './FileViewerModal';
 
 interface PatientDashboardProps {
   user: User;
@@ -55,7 +56,6 @@ const slideUpVariant = {
 
 export default function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
   const [activeView, setActiveView] = useState<PatientView>('overview');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [reports, setReports] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
@@ -71,6 +71,8 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
     gender: user?.patientProfile?.gender || '',
     medicalHistory: user?.patientProfile?.medicalHistory || '',
   });
+  // File viewer modal state
+  const [selectedReport, setSelectedReport] = useState<{ fileUrl: string; fileName: string; fileType: 'image' | 'pdf' | 'other' } | null>(null);
 
   useEffect(() => {
     setProfileImage(user?.patientProfile?.profilePicture || user?.avatar || '');
@@ -81,12 +83,27 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
     });
   }, [user]);
 
-  const isAssigned = user.status === 'assigned' && user.assignedDoctorName;
-  const isMember = user.isMember && user.membershipStatus === 'active';
-  const isPendingApproval = user.membershipStatus === 'pendingApproval';
+  const getPlanBadge = (amount?: number) => {
+    if (!amount || amount === 0) return null;
+    if (amount >= 3000 && amount <= 7000) {
+      return { label: 'Silver', color: 'bg-slate-400 text-white' };
+    } else if (amount > 7000 && amount <= 12000) {
+      return { label: 'Gold', color: 'bg-gradient-to-r from-amber-400 to-yellow-500 text-black' };
+    } else if (amount > 12000) {
+      return { label: 'Diamond', color: 'bg-gradient-to-r from-blue-400 to-purple-500 text-white' };
+    }
+    return null;
+  };
+
+  const planBadge = getPlanBadge(user?.totalFees);
+
+  // Computed variables for UI state
+  const isAssigned = user?.status === 'assigned' && user?.assignedDoctorName;
+  const isMember = user?.isMember && user?.membershipStatus === 'active';
+  const isPendingApproval = user?.membershipStatus === 'pendingApproval';
   const isProfileComplete = user?.profileCompleted && user?.patientProfile?.age;
 
-  useEffect(() => {
+   useEffect(() => {
     if (user?.id) {
       setReports(user?.reports || []);
       const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
@@ -195,23 +212,9 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
       console.error('Error saving profile:', err);
     }
     setSavingProfile(false);
-  };
+   };
 
-  const handleImageUpload = async (url: string) => {
-    setProfileImage(url);
-    if (!user?.id) return;
-    try {
-      await updateDoc(doc(db, 'users', user.id), {
-        profilePicture: url,
-        avatar: url,
-        'patientProfile.profilePicture': url
-      });
-    } catch (err) {
-      console.error('Error updating profile picture:', err);
-    }
-  };
-
-  const renderContent = () => {
+   const renderContent = () => {
     switch (activeView) {
       case 'overview':
         return (
@@ -221,6 +224,21 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             animate="visible"
             className="space-y-6"
           >
+            {/* Profile Card with Plan Badge */}
+            <motion.div variants={slideUpVariant} className="glass-card-interactive p-6 rounded-2xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-white">{user.name}</h2>
+                  <p className="text-slate-400 text-sm">Patient Dashboard</p>
+                </div>
+                {planBadge && (
+                  <div className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg ${planBadge.color}`}>
+                    {planBadge.label} Plan
+                  </div>
+                )}
+              </div>
+            </motion.div>
+
             {!isProfileComplete && (
               <motion.button
                 variants={slideUpVariant}
@@ -242,44 +260,72 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
               <DailyTip />
             </motion.div>
 
-            <motion.div variants={slideUpVariant}>
-              <div className="glass-card-interactive p-6 rounded-2xl bg-gradient-to-br from-rose-500/10 to-crimson-700/5 border border-rose-500/20">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-rose-600 to-crimson-700 flex items-center justify-center shadow-lg shadow-rose-900/30">
-                      <FileText className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-white">Medical Reports</h3>
-                      <p className="text-rose-400 text-xs">Upload PDF, X-rays, MRI reports</p>
-                    </div>
-                  </div>
-                </div>
-                <label className="flex items-center justify-center w-full p-6 border-2 border-dashed border-rose-500/30 rounded-xl cursor-pointer hover:border-rose-500 hover:bg-rose-500/10 transition-all group">
-                  <input 
-                    type="file" 
-                    accept="image/*,.pdf" 
-                    onChange={handleUpload} 
-                    className="hidden" 
-                    disabled={uploading} 
-                  />
-                  <div className="text-center">
-                    {uploading ? (
-                      <>
-                        <div className="w-8 h-8 mx-auto mb-2 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
-                        <p className="text-rose-300 font-medium">Uploading...</p>
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-10 h-10 mx-auto mb-2 text-rose-400 group-hover:text-rose-300 transition-colors" />
-                        <p className="text-rose-200 font-medium">Tap to Upload Report</p>
-                        <p className="text-slate-500 text-xs mt-1">PDF, JPG, PNG (Max 10MB)</p>
-                      </>
-                    )}
-                  </div>
-                </label>
-              </div>
-            </motion.div>
+             <motion.div variants={slideUpVariant}>
+               <div className="glass-card-interactive p-6 rounded-2xl bg-gradient-to-br from-rose-500/10 to-crimson-700/5 border border-rose-500/20">
+                 <div className="flex items-center justify-between mb-4">
+                   <div className="flex items-center gap-3">
+                     <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-rose-600 to-crimson-700 flex items-center justify-center shadow-lg shadow-rose-900/30">
+                       <FileText className="w-6 h-6 text-white" />
+                     </div>
+                     <div>
+                       <h3 className="text-lg font-semibold text-white">Medical Reports</h3>
+                       <p className="text-rose-400 text-xs">Upload PDF, X-rays, MRI reports</p>
+                     </div>
+                   </div>
+                 </div>
+                 <label className="flex items-center justify-center w-full p-6 border-2 border-dashed border-rose-500/30 rounded-xl cursor-pointer hover:border-rose-500 hover:bg-rose-500/10 transition-all group">
+                   <input 
+                     type="file" 
+                     accept="image/*,.pdf" 
+                     onChange={handleUpload} 
+                     className="hidden" 
+                     disabled={uploading} 
+                   />
+                   <div className="text-center">
+                     {uploading ? (
+                       <>
+                         <div className="w-8 h-8 mx-auto mb-2 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+                         <p className="text-rose-300 font-medium">Uploading...</p>
+                       </>
+                     ) : (
+                       <>
+                         <Upload className="w-10 h-10 mx-auto mb-2 text-rose-400 group-hover:text-rose-300 transition-colors" />
+                         <p className="text-rose-200 font-medium">Tap to Upload Report</p>
+                         <p className="text-slate-500 text-xs mt-1">PDF, JPG, PNG (Max 10MB)</p>
+                       </>
+                     )}
+                   </div>
+                 </label>
+                 
+                 {/* Recent reports list */}
+                 {reports.length > 0 && (
+                   <div className="mt-6 space-y-2">
+                     <p className="text-slate-400 text-sm mb-2">Recent Uploads:</p>
+                     {reports.slice(-3).reverse().map((report) => (
+                       <div 
+                         key={Math.random()}
+                         className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 cursor-pointer hover:border-rose-500/30 transition-all"
+                         onClick={() => setSelectedReport({
+                           fileUrl: report.fileUrl,
+                           fileName: report.fileName,
+                           fileType: report.fileType
+                         })}
+                       >
+                         <div className="flex items-center gap-2">
+                           {report.fileType === 'image' ? (
+                             <Image className="w-4 h-4 text-primary" />
+                           ) : (
+                             <File className="w-4 h-4 text-red-400" />
+                           )}
+                           <span className="text-white text-sm truncate max-w-[200px]">{report.fileName}</span>
+                         </div>
+                         <span className="text-rose-400 text-xs">View</span>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+               </div>
+             </motion.div>
 
             <motion.div variants={slideUpVariant}>
               <PatientOverview 
@@ -340,7 +386,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                 <div className="space-y-3">
                   {reports.map((report) => (
                     <motion.div
-                      key={report.id}
+                      key={report.id || Math.random()}
                       whileHover={{ scale: 1.01 }}
                       className="flex items-center justify-between p-4 bg-white/5 rounded-xl hover:shadow-crimson-glow transition-all"
                     >
@@ -352,27 +398,31 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                         )}
                         <div>
                           <p className="text-white font-medium">{report.fileName}</p>
-                          <p className="text-slate-400 text-xs">{report.uploadedAt?.toLocaleDateString()}</p>
+                          <p className="text-slate-400 text-xs">
+                            {report.uploadedAt?.toLocaleDateString?.() || new Date(report.uploadedAt).toLocaleDateString()}
+                          </p>
                         </div>
                       </div>
-                      <a
-                        href={report.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        onClick={() => setSelectedReport({
+                          fileUrl: report.fileUrl,
+                          fileName: report.fileName,
+                          fileType: report.fileType
+                        })}
                         className="px-4 py-2 rounded-lg bg-primary/20 text-primary text-sm hover:bg-primary/30 hover:scale-[1.02] hover:shadow-crimson-glow transition-all"
                       >
-                        View
-                      </a>
+                        View Report
+                      </button>
                     </motion.div>
                   ))}
                 </div>
-               ) : (
-                  <MedicalEmptyState
-                    title="No Reports Yet"
-                    description="Upload your medical reports, prescriptions, and X-rays for your doctor to review."
-                    className="bg-white/5"
-                  />
-                )}
+              ) : (
+                <MedicalEmptyState
+                  title="No Reports Yet"
+                  description="Upload your medical reports, prescriptions, and X-rays for your doctor to review."
+                  className="bg-white/5"
+                />
+              )}
             </motion.div>
           </motion.div>
         );
@@ -382,114 +432,35 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
   };
 
   return (
-    <div className="min-h-screen flex">
-      <AnimatePresence>
-        {sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      <motion.aside
-        initial={false}
-        animate={{
-          x: sidebarOpen ? 0 : -280,
-        }}
-        className="fixed lg:static inset-y-0 left-0 z-50 w-72 glass-card border-r border-white/10 rounded-none flex flex-col bg-black/20"
-      >
-        <div className="p-6 border-b border-white/10">
-          <div className="flex items-center gap-4">
-            <ImageUpload
-              currentImage={profileImage}
-              userId={user?.id || ''}
-              onImageUpload={handleImageUpload}
-              size="md"
-            />
-            <div className="flex-1 min-w-0">
-              <p className="text-white font-semibold truncate">{user.name}</p>
-              <p className="text-slate-400 text-sm">Patient Profile</p>
-            </div>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-slate-400" />
-            </button>
-          </div>
+    <div className="min-h-screen bg-slate-950">
+      {/* Header */}
+      <header className="glass-card border-t-0 border-x-0 rounded-none px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Logo width={120} height={36} showTagline={false} className="cursor-pointer" onClick={() => setActiveView('overview')} />
         </div>
+        
+        <h1 className="text-xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+          {navItems.find(i => i.id === activeView)?.label}
+        </h1>
 
-        <nav className="flex-1 p-4 space-y-2">
-          {navItems.map((item) => (
-            <motion.button
-              key={item.id}
-              whileHover={{ scale: 1.02, x: 4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                setActiveView(item.id);
-                setSidebarOpen(false);
-              }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                activeView === item.id
-                  ? 'premium-gradient text-white shadow-lg shadow-crimson-intense'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5 hover:shadow-crimson-glow'
-              }`}
-            >
-              {item.icon}
-              <span className="font-medium">{item.label}</span>
-            </motion.button>
-          ))}
-        </nav>
-
-        <div className="p-4 border-t border-white/10">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+        <div className="flex items-center gap-2">
+          <button 
             onClick={onLogout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-red-400 hover:text-white hover:bg-red-500 hover:shadow-crimson-intense transition-all border border-red-500/20"
+            className="p-2 hover:bg-red-500/10 hover:scale-[1.02] hover:shadow-crimson-glow rounded-lg group transition-all"
+            title="Logout"
           >
-            <LogOut className="w-5 h-5" />
-            <span className="font-medium">Logout</span>
-          </motion.button>
-        </div>
-      </motion.aside>
-
-      <div className="flex-1 flex flex-col min-h-screen bg-slate-950">
-        <header className="glass-card border-t-0 border-x-0 rounded-none px-4 py-4 flex items-center justify-between bg-black/10">
-          <div className="flex items-center gap-3">
-            <Logo width={120} height={36} className="cursor-pointer" onClick={() => setActiveView('overview')} />
-          </div>
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <Menu className="w-6 h-6 text-slate-400" />
+            <LogOut className="w-5 h-5 text-slate-500 group-hover:text-red-400" />
           </button>
-          
-          <h1 className="text-xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-            {navItems.find(i => i.id === activeView)?.label}
-          </h1>
+        </div>
+      </header>
 
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={onLogout}
-              className="p-2 hover:bg-red-500/10 hover:scale-[1.02] hover:shadow-crimson-glow rounded-lg group transition-all"
-              title="Logout"
-            >
-              <LogOut className="w-5 h-5 text-slate-500 group-hover:text-red-400" />
-            </button>
-          </div>
-        </header>
-
+      {/* Main Content - Centered */}
+      <div className="w-full max-w-6xl mx-auto px-4 py-8">
         {isAssigned ? (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mx-4 mt-4 glass-card p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20"
+            className="mt-4 mb-6 glass-card p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center">
@@ -505,7 +476,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mx-4 mt-4 glass-card p-4 bg-amber-500/5 border border-amber-500/20"
+            className="mt-4 mb-6 glass-card p-4 bg-amber-500/5 border border-amber-500/20"
           >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
@@ -519,20 +490,18 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
           </motion.div>
         )}
 
-        <main className="flex-1 max-w-3xl mx-auto px-4 py-6 overflow-x-hidden">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeView}
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
-              className="w-full"
-            >
-              {renderContent()}
-            </motion.div>
-          </AnimatePresence>
-        </main>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeView}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+            className="w-full"
+          >
+            {renderContent()}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       <AnimatePresence>
@@ -656,7 +625,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -672,6 +641,16 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                 >
                   <X className="w-5 h-5 text-slate-400" />
                 </button>
+              </div>
+
+              {/* Profile Picture Upload */}
+              <div className="flex justify-center mb-6">
+                <ImageUpload
+                  currentImage={profileImage}
+                  userId={user?.id || ''}
+                  onImageUpload={setProfileImage}
+                  size="lg"
+                />
               </div>
 
               <div className="space-y-4">
@@ -723,6 +702,15 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* File Viewer Modal */}
+      <FileViewerModal
+        isOpen={!!selectedReport}
+        onClose={() => setSelectedReport(null)}
+        fileUrl={selectedReport?.fileUrl || ''}
+        fileName={selectedReport?.fileName || ''}
+        fileType={selectedReport?.fileType || 'other'}
+      />
     </div>
   );
 }

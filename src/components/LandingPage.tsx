@@ -218,9 +218,8 @@ function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctor
         animate={{ opacity: 1, y: 0 }}
         className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-8 py-4 bg-black/50 backdrop-blur-md border-b border-white/10"
       >
-        <div className="flex items-center gap-3">
-          <Logo width={200} height={64} className="cursor-pointer" />
-          <span className="text-rose-400 text-xs font-bold tracking-widest">DEAR PAIN! LET'S BREAKUP</span>
+        <div className="flex items-center">
+          <Logo width={200} height={64} className="cursor-pointer" showTagline={true} />
         </div>
         <div className="flex items-center gap-4">
           <button 
@@ -488,12 +487,8 @@ function Footer() {
     <footer className="py-12 px-4 border-t border-white/10">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <Logo width={40} height={40} className="rounded-lg" />
-            <div>
-              <Logo width={100} height={24} />
-              <p className="text-slate-400 text-sm">Dear Pain! Let's Breakup</p>
-            </div>
+          <div className="flex items-center">
+            <Logo width={180} height={60} showTagline={true} />
           </div>
           <p className="text-slate-400 text-sm">
             &copy; 2026 Body Experts. All rights reserved.

@@ -7,17 +7,19 @@ import {
   Calendar, MapPin, FileText, UserCircle, File, Image
 } from 'lucide-react';
 import { DoctorView, PatientReport } from '@/types';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { 
   doc, 
   updateDoc, 
-  onSnapshot
+  onSnapshot,
+  arrayUnion
 } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import ImageUpload from './ImageUpload';
 import SmartGreeting from './SmartGreeting'; 
 import DailyTip from './DailyTip';
 import CounterAnimation from './CounterAnimation';
+import FileViewerModal from './FileViewerModal';
+import { EXERCISES } from '@/lib/data';
 
 interface DoctorDashboardProps {
   patients: any[]; 
@@ -29,6 +31,8 @@ interface DoctorDashboardProps {
 export default function DoctorDashboard({ user, patients, onUpdatePatient, onLogout }: DoctorDashboardProps) {
   const [activeView, setActiveView] = useState<DoctorView>('waiting');
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
+  const [selectedExercises, setSelectedExercises] = useState<any[]>([]);
+  const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileImage, setProfileImage] = useState<string>(user?.profilePicture || user?.avatar || '');
   const [savingProfile, setSavingProfile] = useState(false);
@@ -36,19 +40,35 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
   // Reports State
   const [patientReports, setPatientReports] = useState<PatientReport[]>([]);
   
-  // Profile Data State
+  // Profile Data State (no file upload)
   const [currentStep, setCurrentStep] = useState(1);
   const [profileData, setProfileData] = useState({
     education: user?.doctorProfile?.education || '',
-    educationCertificate: user?.doctorProfile?.educationCertificate || '',
     experience: user?.doctorProfile?.experience || '',
     specialization: user?.doctorProfile?.specialization || '',
     availableDays: user?.doctorProfile?.availableDays || [],
     startTime: user?.doctorProfile?.startTime || '9:00 AM',
     endTime: user?.doctorProfile?.endTime || '5:00 PM',
   });
-  const [uploadingCert, setUploadingCert] = useState(false);
-  const [certUploadProgress, setCertUploadProgress] = useState(0);
+
+  // File viewer modal state
+  const [selectedReport, setSelectedReport] = useState<{ fileUrl: string; fileName: string; fileType: 'image' | 'pdf' | 'other' } | null>(null);
+
+  // Real-time profile completion state
+  const [profileCompleted, setProfileCompleted] = useState<boolean>(!!(user?.profileCompleted && user?.doctorProfile?.education && user?.doctorProfile?.specialization));
+
+  // Sync profile completion status in real-time
+  useEffect(() => {
+    if (!user?.id) return;
+    const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const isComplete = !!(data?.profileCompleted && data?.doctorProfile?.education && data?.doctorProfile?.specialization);
+        setProfileCompleted(isComplete);
+      }
+    });
+    return () => unsubscribe();
+  }, [user?.id]);
 
   const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const timeOptions = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '8:00 PM'];
@@ -58,78 +78,46 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
   const isStep3Complete = profileData.availableDays.length > 0 && !!profileData.startTime && !!profileData.endTime;
   const canSubmit = isStep1Complete && isStep2Complete && isStep3Complete;
 
-  const certInputRef = useRef<HTMLInputElement>(null);
-  const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
-  
-  const handleDegreeCertUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user?.id) return;
-    if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
-      alert('Please upload a PDF or image file (JPG, PNG)');
-      return;
-    }
-    if (file.size > MAX_FILE_SIZE) {
-      alert('File size must be less than 2MB');
-      return;
-    }
-
-    console.log('Certificate Upload Started:', file.name, file.size, file.type);
-    setUploadingCert(true);
-    setCertUploadProgress(0);
-
-    try {
-      const fileName = `certificates/${user.id}/education_${Date.now()}_${file.name}`;
-      console.log('Creating storage reference:', fileName);
-      const fileRef = ref(storage, fileName);
-      
-      console.log('Starting upload task...');
-      const uploadTask = uploadBytesResumable(fileRef, file);
-      
-      await new Promise<void>((resolve, reject) => {
-        uploadTask.on(
-          'state_changed',
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            console.log('Upload Progress:', Math.round(progress) + '%');
-            setCertUploadProgress(progress);
-          },
-          (error) => {
-            console.error('Upload Error:', error);
-            alert('Upload failed. Please try again.');
-            reject(error);
-          },
-          async () => {
-            console.log('Upload complete, getting download URL...');
-            const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-            console.log('Download URL received:', downloadUrl);
-            setProfileData({ ...profileData, educationCertificate: downloadUrl });
-            resolve();
-          }
-        );
-      });
-      console.log('Certificate upload successful!');
-    } catch (err) {
-      console.error('Error uploading certificate:', err);
-      alert('Upload failed. Please try again.');
-    }
-    setUploadingCert(false);
-    if (certInputRef.current) {
-      certInputRef.current.value = '';
-    }
-  };
-
   const toggleDay = (day: string) => {
-    const newDays = profileData.availableDays.includes(day)
-      ? profileData.availableDays.filter(d => d !== day)
-      : [...profileData.availableDays, day];
+    const newDays = profileData.availableDays.filter((d: string) => d !== day);
     setProfileData({ ...profileData, availableDays: newDays });
   };
 
-  // Profile status check
-  const isProfileComplete = !!(user?.doctorProfile?.education && user?.doctorProfile?.specialization);
+  const handleSelectPatient = (patient: any) => {
+    setSelectedPatient(patient);
+    setSelectedExercises(patient.exercises || []);
+  };
 
-  // Fetch patient reports from their document's reports array
-  useEffect(() => {
+  const toggleExercise = (exercise: any) => {
+    setSelectedExercises(prev => {
+      const exists = prev.find(e => e.id === exercise.id);
+      if (exists) return prev.filter(e => e.id !== exercise.id);
+      return [...prev, exercise];
+    });
+  };
+
+  const handleSaveExercises = async () => {
+    if (!selectedPatient?.id) return;
+    try {
+      // Save exercises to the patient's document
+      await updateDoc(doc(db, 'users', selectedPatient.id), {
+        exercises: selectedExercises
+      });
+      // Update local state
+      setSelectedPatient({ ...selectedPatient, exercises: selectedExercises });
+      setShowExerciseModal(false);
+      alert('Exercises assigned successfully!');
+    } catch (err) {
+      console.error('Error saving exercises:', err);
+      alert('Failed to save exercises. Please try again.');
+    }
+  };
+
+  // Profile status check - use real-time state
+  const isProfileComplete = profileCompleted;
+
+   // Fetch patient reports from their document's reports array
+   useEffect(() => {
     const patientId = selectedPatient?.id || selectedPatient?.userId;
     if (patientId) {
       setPatientReports(selectedPatient?.reports || []);
@@ -152,12 +140,6 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
     }
   }, [selectedPatient?.id, selectedPatient?.userId]);
 
-  useEffect(() => {
-    if (!isProfileComplete) {
-      setShowProfileModal(true);
-    }
-  }, [isProfileComplete]);
-
   const handleSaveProfile = async () => {
     if (!user?.id) return;
     setSavingProfile(true);
@@ -166,7 +148,6 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
         profileCompleted: true,
         doctorProfile: { 
           education: profileData.education,
-          educationCertificate: profileData.educationCertificate,
           specialization: profileData.specialization,
           experience: profileData.experience,
           availableDays: profileData.availableDays,
@@ -184,6 +165,13 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
       console.error('Error:', err);
     }
     setSavingProfile(false);
+  };
+
+  const handleStartSession = () => {
+    if (!selectedPatient) return;
+    const updatedPatient = { ...selectedPatient, status: 'consulting' as const };
+    onUpdatePatient(updatedPatient);
+    setSelectedPatient(updatedPatient);
   };
 
   return (
@@ -259,10 +247,10 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
               <h2 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 mb-4">
                 <Clock className="w-4 h-4 text-rose-500" /> Patient Queue
               </h2>
-              {patients.map(patient => (
+               {patients.map(patient => (
                 <motion.div
                   key={patient.id}
-                  onClick={() => setSelectedPatient(patient)}
+                  onClick={() => handleSelectPatient(patient)}
                   className={`p-4 rounded-2xl cursor-pointer border transition-all duration-300 ${
                     selectedPatient?.id === patient.id 
                       ? 'bg-gradient-to-br from-rose-500/20 to-rose-500/5 border-rose-500/50 shadow-lg shadow-rose-900/20' 
@@ -279,6 +267,19 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                         <p className="text-[10px] text-rose-400/80 mt-2 line-clamp-1">
                           {patient.medicalCondition}
                         </p>
+                      )}
+                      {/* Exercise badges */}
+                      {patient.exercises && patient.exercises.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {patient.exercises.slice(0, 2).map((ex: any, idx: number) => (
+                            <span key={idx} className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded border border-primary/20">
+                              {ex.name}
+                            </span>
+                          ))}
+                          {patient.exercises.length > 2 && (
+                            <span className="text-[10px] text-slate-500">+{patient.exercises.length - 2}</span>
+                          )}
+                        </div>
                       )}
                     </div>
                     {selectedPatient?.id === patient.id && (
@@ -315,15 +316,26 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                          <p className="text-rose-500 text-xs font-bold uppercase tracking-[0.2em] mt-1">
                            {selectedPatient.medicalCondition || 'General Consultation'}
                          </p>
-                       </div>
-<motion.button
-                          whileHover={{ scale: 1.03, boxShadow: '0 8px 32px rgba(225, 29, 72, 0.4)' }}
-                          whileTap={{ scale: 0.97 }}
-                          className="px-6 py-3 bg-gradient-to-r from-rose-600 to-crimson-700 rounded-xl text-xs font-bold shadow-lg shadow-rose-900/30 backdrop-blur-xl border border-white/10 transition-all uppercase tracking-wider"
-                        >
-                          Start Session
-                        </motion.button>
-                     </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <motion.button
+                            whileHover={{ scale: 1.03, boxShadow: '0 8px 32px rgba(225, 29, 72, 0.4)' }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={handleStartSession}
+                            className="px-6 py-3 bg-gradient-to-r from-rose-600 to-crimson-700 rounded-xl text-xs font-bold shadow-lg shadow-rose-900/30 backdrop-blur-xl border border-white/10 transition-all uppercase tracking-wider"
+                          >
+                            Start Session
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.03, boxShadow: '0 8px 32px rgba(59, 130, 246, 0.4)' }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => setShowExerciseModal(true)}
+                            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-xs font-bold shadow-lg shadow-blue-900/30 backdrop-blur-xl border border-white/10 transition-all uppercase tracking-wider"
+                          >
+                            Assign Exercises
+                          </motion.button>
+                        </div>
+                      </div>
 
                      {/* Reports Section - Ultra Luxury */}
                      <motion.div 
@@ -376,15 +388,17 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                                      {report.uploadedBy && ` • by ${report.uploadedBy}`}
                                    </p>
                                  </div>
-                               </div>
-                               <a
-                                 href={report.fileUrl}
-                                 target="_blank"
-                                 rel="noopener noreferrer"
-                                 className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-300 text-xs font-bold uppercase tracking-wider hover:bg-rose-500/20 hover:scale-105 transition-all border border-rose-500/20"
-                               >
-                                 View
-                               </a>
+                                </div>
+                                 <button
+                                   onClick={() => setSelectedReport({
+                                     fileUrl: report.fileUrl,
+                                     fileName: report.fileName,
+                                     fileType: (report.fileType === 'image' || report.fileType === 'pdf') ? report.fileType : 'other'
+                                   })}
+                                   className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-300 text-xs font-bold uppercase tracking-wider hover:bg-rose-500/20 hover:scale-105 transition-all border border-rose-500/20"
+                                >
+                                  View
+                                </button>
                              </motion.div>
                            ))
                          ) : (
@@ -653,11 +667,84 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
+               </div>
+             </motion.div>
+           </div>
+         )}
+        </AnimatePresence>
+
+        {/* Exercises Modal */}
+        <AnimatePresence>
+          {showExerciseModal && selectedPatient && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="w-full max-w-3xl bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              >
+                <div className="p-6 border-b border-white/5 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Prescribe Exercises</h2>
+                    <p className="text-sm text-slate-400">Assigning for {selectedPatient?.name}</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowExerciseModal(false)}
+                    className="p-2 hover:bg-white/10 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] rounded-full transition-colors"
+                  >
+                    <X className="w-6 h-6 text-slate-400" />
+                  </button>
+                </div>
+
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
+                  {EXERCISES.map((exercise) => {
+                    const isSelected = selectedExercises.some(e => e.id === exercise.id);
+                    return (
+                      <div 
+                        key={exercise.id} 
+                        onClick={() => toggleExercise(exercise)}
+                        className={`p-4 rounded-xl cursor-pointer border transition-all ${
+                          isSelected 
+                            ? 'border-primary bg-primary/10 shadow-inner' 
+                            : 'border-white/5 bg-white/5 hover:bg-white/10 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)]'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <h4 className="font-semibold text-white">{exercise.name}</h4>
+                          {isSelected && <CheckCircle className="w-5 h-5 text-primary" />}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1 line-clamp-2">{exercise.description}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="p-6 border-t border-white/5 bg-black/20 flex gap-4">
+                  <button 
+                    onClick={handleSaveExercises}
+                    className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/20 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)]"
+                  >
+                    Save Exercise Plan
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
+          )}
+        </AnimatePresence>
+
+        {/* File Viewer Modal */}
+        <FileViewerModal
+          isOpen={!!selectedReport}
+          onClose={() => setSelectedReport(null)}
+          fileUrl={selectedReport?.fileUrl || ''}
+          fileName={selectedReport?.fileName || ''}
+          fileType={selectedReport?.fileType || 'other'}
+        />
+      </div>
+    );
+  }
