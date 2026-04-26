@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, UserCheck, Shield, ArrowRight, X, Check, Clock, FileText, QrCode, XCircle, PartyPopper } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, updateDoc, doc, addDoc } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, addDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { User } from '@/types';
 import CounterAnimation from './CounterAnimation';
 import MedicalEmptyState from './MedicalEmptyState';
@@ -20,11 +20,26 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
   const [doctors, setDoctors] = useState<User[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [feeInputs, setFeeInputs] = useState<Record<string, string>>({});
+  const [membershipRequests, setMembershipRequests] = useState<any[]>([]);
 
   useEffect(() => {
     const doctorList = users.filter(u => u.role === 'doctor');
     setDoctors(doctorList);
   }, [users]);
+
+  // Fetch membership requests in real-time
+  useEffect(() => {
+    const requestsRef = collection(db, 'membershipRequests');
+    const unsubscribe = onSnapshot(requestsRef, (snapshot) => {
+      const requests = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        requestDate: doc.data().requestDate?.toDate() || doc.data().requestDate || new Date()
+      }));
+      setMembershipRequests(requests.filter(r => r.status === 'pending'));
+    });
+    return () => unsubscribe();
+  }, []);
 
   const patients = users.filter(u => u.role === 'patient');
   const unassignedPatients = patients.filter(u => u.status !== 'assigned');
@@ -70,15 +85,24 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
     }
   };
 
-  const handleApproveMembership = async (userId: string, totalFees: number) => {
+  const handleApproveMembership = async (requestId: string, userId: string, totalFees: number) => {
     if (!totalFees || totalFees <= 0) return;
     try {
+      // Update the membership request status
+      await updateDoc(doc(db, 'membershipRequests', requestId), {
+        status: 'approved',
+        approvedAt: new Date(),
+        totalFees: totalFees
+      });
+      
+      // Update the patient's user document
       await updateDoc(doc(db, 'users', userId), {
         isMember: true,
         membershipStatus: 'active',
         membershipType: 'custom',
         totalFees: totalFees
       });
+      
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 3000);
     } catch (err) {
@@ -86,8 +110,15 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
     }
   };
 
-  const handleRejectMembership = async (userId: string) => {
+  const handleRejectMembership = async (requestId: string, userId: string) => {
     try {
+      // Update the membership request status
+      await updateDoc(doc(db, 'membershipRequests', requestId), {
+        status: 'rejected',
+        rejectedAt: new Date()
+      });
+      
+      // Update the patient's user document
       await updateDoc(doc(db, 'users', userId), {
         membershipStatus: 'rejected',
         submittedTrxID: null
@@ -196,7 +227,7 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
             { label: 'Patients', value: patients.length, icon: <Users className="w-5 h-5" />, color: 'blue', accent: 'from-blue-500 to-cyan-500' },
             { label: 'Doctors', value: doctors.length, icon: <UserCheck className="w-5 h-5" />, color: 'red', accent: 'from-red-500 to-rose-500' },
             { label: 'Unassigned', value: unassignedPatients.length, icon: <Clock className="w-5 h-5" />, color: 'amber', accent: 'from-amber-400 to-yellow-500' },
-            { label: 'Pending', value: pendingMembershipRequests.length, icon: <FileText className="w-5 h-5" />, color: 'purple', accent: 'from-purple-500 to-violet-500' },
+            { label: 'Pending', value: membershipRequests.length, icon: <FileText className="w-5 h-5" />, color: 'purple', accent: 'from-purple-500 to-violet-500' },
             { label: 'Scan QR', value: '', icon: <QrCode className="w-5 h-5" />, color: 'sky', accent: 'from-sky-400 to-blue-500', placeholder: true },
           ].map((stat, index) => (
             <motion.div
@@ -293,8 +324,13 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
             </div>
 
             <div className="space-y-4">
-              {pendingMembershipRequests.map((patient) => (
-                <div key={patient.id} className="p-4 bg-white/5 rounded-xl">
+              {membershipRequests.map((request) => {
+                // Find the corresponding patient from users
+                const patient = users.find(u => u.id === request.patientId);
+                if (!patient) return null;
+                
+                return (
+                <div key={request.id} className="p-4 bg-white/5 rounded-xl">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
@@ -305,65 +341,58 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
                       <div>
                         <p className="text-white font-medium">{patient.name}</p>
                         <p className="text-slate-400 text-xs">
-                          Status: {(patient as any).membershipStatus === 'pendingApproval' ? 'Pending Approval' : 'Waiting for Payment'}
+                          Status: Pending Approval
                         </p>
                       </div>
                     </div>
                   </div>
                   
-                   {(patient as any).submittedTrxID && (
-                     <div className="mb-3 p-2 bg-amber-500/10 rounded-lg">
-                       <p className="text-amber-400 text-xs mb-1">Transaction ID</p>
-                       <p className="text-white font-mono text-sm">{(patient as any).submittedTrxID}</p>
-                     </div>
-                   )}
-                   
-                   <div className="flex gap-2 flex-col sm:flex-row">
-                     {(patient as any).membershipStatus === 'pendingApproval' ? (
-                       <>
-                         <div className="flex-1">
-                           <label className="text-slate-400 text-xs mb-1 block">Total Fees Paid (PKR)</label>
-                           <input
-                             type="number"
-                             placeholder="e.g., 15000"
-                             value={feeInputs[patient.id] || ''}
-                             onChange={(e) => setFeeInputs({ ...feeInputs, [patient.id]: e.target.value })}
-                             className="glass-input w-full text-sm py-2"
-                           />
-                         </div>
-                         <motion.button
-                           whileHover={{ scale: 1.05 }}
-                           whileTap={{ scale: 0.95 }}
-                           onClick={() => {
-                             const fee = Number(feeInputs[patient.id]);
-                             if (fee > 0) {
-                               handleApproveMembership(patient.id, fee);
-                             }
-                           }}
-                            className="flex-1 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm hover:bg-emerald-500/30 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors flex items-center justify-center gap-2"
-                         >
-                           <Check className="w-4 h-4" />
-                           Approve
-                         </motion.button>
-                         <motion.button
-                           whileHover={{ scale: 1.05 }}
-                           whileTap={{ scale: 0.95 }}
-                           onClick={() => handleRejectMembership(patient.id)}
-                            className="flex-1 px-3 py-2 rounded-lg bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors flex items-center justify-center gap-2"
-                         >
-                           <XCircle className="w-4 h-4" />
-                           Reject
-                         </motion.button>
-                       </>
-                     ) : (
-                       <div className="flex-1 px-3 py-2 rounded-lg bg-amber-500/20 text-amber-400 text-sm text-center">
-                         Awaiting Payment
-                       </div>
-                     )}
-                   </div>
+                  {request.transactionId && (
+                    <div className="mb-3 p-2 bg-amber-500/10 rounded-lg">
+                      <p className="text-amber-400 text-xs mb-1">Transaction ID</p>
+                      <p className="text-white font-mono text-sm">{request.transactionId}</p>
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-2 flex-col sm:flex-row">
+                    <div className="flex-1">
+                      <label className="text-slate-400 text-xs mb-1 block">Total Fees Paid (PKR)</label>
+                      <input
+                        type="number"
+                        placeholder="e.g., 15000"
+                        value={feeInputs[patient.id] || ''}
+                        onChange={(e) => setFeeInputs({ ...feeInputs, [patient.id]: e.target.value })}
+                        className="glass-input w-full text-sm py-2"
+                      />
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        const fee = Number(feeInputs[patient.id]);
+                        if (fee > 0) {
+                          handleApproveMembership(request.id, patient.id, fee);
+                        }
+                      }}
+                       className="flex-1 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm hover:bg-emerald-500/30 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-4 h-4" />
+                      Approve
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => handleRejectMembership(request.id, patient.id)}
+                       className="flex-1 px-3 py-2 rounded-lg bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors flex items-center justify-center gap-2"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Reject
+                    </motion.button>
+                  </div>
                 </div>
-              ))}
-              {pendingMembershipRequests.length === 0 && (
+                )}
+              )}
+              {membershipRequests.length === 0 && (
                 <div className="text-center py-8 text-slate-500">
                   <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No pending membership requests</p>
@@ -493,7 +522,6 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
               />
             )}
           </div>
-
         </motion.div>
       </div>
     </motion.div>

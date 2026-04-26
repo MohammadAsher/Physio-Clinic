@@ -10,7 +10,7 @@ import PatientExercises from './PatientExercises';
 import PatientMembership from './PatientMembership';
 import PatientProgress from './PatientProgress';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot, collection, addDoc } from 'firebase/firestore';
 import ImageUpload from './ImageUpload';
 import SmartGreeting from './SmartGreeting';
 import DailyTip from './DailyTip';
@@ -161,26 +161,41 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
   };
 
   const handleSubmitMembershipRequest = async () => {
-    if (!trxId.trim() || !user?.id) return;
-    
-    setSubmitting(true);
-    try {
-      await updateDoc(doc(db, 'users', user.id), {
-        membershipStatus: 'pendingApproval',
-        submittedTrxID: trxId.trim(),
-        membershipRequestDate: new Date()
-      });
-      setRequestSent(true);
-      setTimeout(() => {
-        setShowMembershipModal(false);
-        setRequestSent(false);
-        setTrxId('');
-      }, 2000);
-    } catch (err) {
-      console.error('Error submitting membership request:', err);
-    }
-    setSubmitting(false);
-  };
+     if (!trxId.trim() || !user?.id) return;
+     
+     setSubmitting(true);
+     try {
+       // Create a membership request document in Firestore
+       const requestDoc = {
+         patientId: user.id,
+         patientName: user.name,
+         patientEmail: user.email,
+         transactionId: trxId.trim(),
+         status: 'pending' as const,
+         requestDate: new Date(),
+         createdAt: new Date()
+       };
+       
+       await addDoc(collection(db, 'membershipRequests'), requestDoc);
+       
+       // Also update user document for backwards compatibility and quick lookup
+       await updateDoc(doc(db, 'users', user.id), {
+         membershipStatus: 'pendingApproval',
+         submittedTrxID: trxId.trim(),
+         membershipRequestDate: new Date()
+       });
+       
+       setRequestSent(true);
+       setTimeout(() => {
+         setShowMembershipModal(false);
+         setRequestSent(false);
+         setTrxId('');
+       }, 2000);
+     } catch (err) {
+       console.error('Error submitting membership request:', err);
+     }
+     setSubmitting(false);
+   };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText('0000-0000-0000');
@@ -532,23 +547,44 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                 <X className="w-5 h-5 text-slate-400" />
               </button>
 
-              {requestSent ? (
-                <motion.div
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="text-center py-8"
-                >
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                    className="w-20 h-20 mx-auto mb-6 rounded-full premium-gradient flex items-center justify-center"
-                  >
-                    <Sparkles className="w-10 h-10 text-white" />
-                  </motion.div>
-                  <h2 className="text-2xl font-bold text-white mb-2">Request Sent!</h2>
-                  <p className="text-slate-400">We'll review your payment and activate your membership shortly.</p>
-                </motion.div>
-              ) : (
+               {requestSent ? (
+                 <motion.div
+                   initial={{ scale: 0.5, opacity: 0 }}
+                   animate={{ scale: 1, opacity: 1 }}
+                   className="text-center py-8"
+                 >
+                   <motion.div
+                     initial={{ scale: 0, rotate: -180 }}
+                     animate={{ scale: 1, rotate: 0 }}
+                     transition={{ type: 'spring', stiffness: 200, damping: 10 }}
+                     className="w-20 h-20 mx-auto mb-6 rounded-full premium-gradient flex items-center justify-center"
+                   >
+                     <Check className="w-10 h-10 text-white" />
+                   </motion.div>
+                   <motion.h2
+                     initial={{ y: 20, opacity: 0 }}
+                     animate={{ y: 0, opacity: 1 }}
+                     transition={{ delay: 0.2 }}
+                     className="text-2xl font-bold text-white mb-2"
+                   >
+                     Request Submitted!
+                   </motion.h2>
+                   <motion.p
+                     initial={{ y: 20, opacity: 0 }}
+                     animate={{ y: 0, opacity: 1 }}
+                     transition={{ delay: 0.3 }}
+                     className="text-slate-400"
+                   >
+                     Your membership request is pending approval. We'll review your payment and activate your membership shortly.
+                   </motion.p>
+                   <motion.div
+                     initial={{ scale: [1, 1.2, 1] }}
+                     animate={{ scale: [1, 1.2, 1] }}
+                     transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+                     className="w-4 h-4 mx-auto mt-4 rounded-full bg-emerald-400"
+                   />
+                 </motion.div>
+               ) : (
                 <>
                   <div className="text-center mb-6">
                     <motion.div
@@ -561,36 +597,99 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                     <h2 className="text-2xl font-bold text-gradient">Join the Elite Membership Program</h2>
                   </div>
 
-                  <p className="text-slate-400 text-sm mb-6">
-                    To activate your membership, please pay the fees at the Clinic Reception or transfer to our bank account below.
-                  </p>
+                   <p className="text-slate-400 text-sm mb-4">
+                     To activate your membership, please pay the fees via the methods below:
+                   </p>
 
-                  <div className="glass-card p-4 rounded-xl mb-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-slate-400 text-sm">Bank Name</span>
-                      <span className="text-white font-medium">National Bank</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400 text-sm">Account Number</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-white font-mono">0000-0000-0000</span>
-                        <button
-                          onClick={copyToClipboard}
-                            className="p-1 hover:bg-white/10 hover:scale-[1.02] hover:shadow-crimson-glow rounded transition-colors"
-                        >
-                          {copied ? (
-                            <Check className="w-4 h-4 text-emerald-400" />
-                          ) : (
-                            <Copy className="w-4 h-4 text-slate-400" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-slate-400 text-sm">Title</span>
-                      <span className="text-white font-medium">Physio Clinic</span>
-                    </div>
-                  </div>
+                   {/* Bank Transfer Section */}
+                   <div className="glass-card p-4 rounded-xl mb-4">
+                     <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                       <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                       </svg>
+                       Bank Transfer
+                     </h4>
+                     <div className="space-y-3">
+                       <div className="flex items-center justify-between">
+                         <span className="text-slate-400 text-sm">Bank Name</span>
+                         <span className="text-white font-medium">National Bank</span>
+                       </div>
+                       <div className="flex items-center justify-between">
+                         <span className="text-slate-400 text-sm">Account Number</span>
+                         <div className="flex items-center gap-2">
+                           <span className="text-white font-mono">0000-0000-0000</span>
+                           <button
+                             onClick={copyToClipboard}
+                             className="p-1 hover:bg-white/10 hover:scale-[1.02] hover:shadow-crimson-glow rounded transition-colors"
+                           >
+                             {copied ? (
+                               <Check className="w-4 h-4 text-emerald-400" />
+                             ) : (
+                               <Copy className="w-4 h-4 text-slate-400" />
+                             )}
+                           </button>
+                         </div>
+                       </div>
+                       <div className="flex items-center justify-between">
+                         <span className="text-slate-400 text-sm">Account Title</span>
+                         <span className="text-white font-medium">Physio Clinic</span>
+                       </div>
+                     </div>
+                   </div>
+
+                   {/* Digital Payment Section */}
+                   <div className="glass-card p-4 rounded-xl mb-4">
+                     <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                       <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                       </svg>
+                       EasyPaisa / JazzCash
+                     </h4>
+                     <div className="space-y-3">
+                       <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                         <span className="text-slate-400 text-sm">EasyPaisa Number</span>
+                         <span className="text-white font-mono">0300-1234567</span>
+                       </div>
+                       <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                         <span className="text-slate-400 text-sm">JazzCash Number</span>
+                         <span className="text-white font-mono">0333-1234567</span>
+                       </div>
+                     </div>
+                   </div>
+
+                   {/* QR Code Section */}
+                   <div className="glass-card p-4 rounded-xl mb-4">
+                     <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                       <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                       </svg>
+                       Scan QR for EasyPaisa/JazzCash
+                     </h4>
+                     <motion.div
+                       initial={{ scale: 0.9, opacity: 0 }}
+                       animate={{ scale: 1, opacity: 1 }}
+                       transition={{ delay: 0.3 }}
+                       className="flex justify-center p-4 bg-white/5 rounded-xl"
+                     >
+                       <div className="w-32 h-32 bg-white rounded-xl p-3 flex items-center justify-center">
+                         <svg className="w-full h-full text-slate-800" viewBox="0 0 100 100" fill="none">
+                           <rect x="10" y="10" width="20" height="20" fill="currentColor" />
+                           <rect x="10" y="35" width="20" height="8" fill="currentColor" />
+                           <rect x="10" y="47" width="8" height="20" fill="currentColor" />
+                           <rect x="40" y="10" width="8" height="20" fill="currentColor" />
+                           <rect x="52" y="10" width="20" height="8" fill="currentColor" />
+                           <rect x="70" y="10" width="20" height="20" fill="currentColor" />
+                           <rect x="70" y="70" width="20" height="20" fill="currentColor" />
+                           <rect x="10" y="70" width="20" height="20" fill="currentColor" />
+                           <rect x="35" y="52" width="30" height="8" fill="currentColor" />
+                           <rect x="52" y="35" width="8" height="20" fill="currentColor" />
+                         </svg>
+                       </div>
+                     </motion.div>
+                     <p className="text-slate-400 text-xs text-center mt-2">
+                       Scan to pay via EasyPaisa/JazzCash
+                     </p>
+                   </div>
 
                   <div className="mb-6">
                     <label className="text-slate-400 text-sm mb-2 block">Enter Receipt Number or Transaction ID</label>
