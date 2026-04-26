@@ -3,13 +3,15 @@ export interface User {
   name: string;
   email: string;
   phone: string;
-  role: 'patient' | 'doctor' | 'admin';
+  role: 'patient' | 'doctor' | 'admin' | 'therapist';
   avatar?: string;
   profilePicture?: string;
   createdAt: Date;
   status?: 'unassigned' | 'assigned' | 'waiting' | 'consulting' | 'completed';
   assignedDoctorId?: string;
   assignedDoctorName?: string;
+  assignedTherapistId?: string;
+  assignedTherapistName?: string;
   isMember?: boolean;
   membershipStatus?: 'pending' | 'active' | 'expired' | 'pendingApproval' | 'rejected';
   membershipType?: 'silver' | 'gold' | 'platinum' | 'custom';
@@ -74,11 +76,15 @@ export interface Patient {
   medicalCondition?: any;
   membership?: any;
   exercises?: any[];
+  prescribedExercises?: any[];
+  lastUpdated?: any;
   totalFees?: number;
   profilePicture?: string;
   avatar?: string;
   assignedDoctorId?: string;
   assignedDoctorName?: string;
+  assignedTherapistId?: string;
+  assignedTherapistName?: string;
 }
 
 export interface Exercise {

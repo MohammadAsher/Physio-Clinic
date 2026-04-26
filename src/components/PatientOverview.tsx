@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, Activity, CheckCircle, Crown, X } from 'lucide-react';
+import { Calendar, Clock, Activity, CheckCircle, Crown, X, FileText, Upload, Image } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { User, Patient } from '@/types';
 import CounterAnimation from './CounterAnimation';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 interface PatientOverviewProps {
   user: User;
@@ -17,6 +19,9 @@ interface PatientOverviewProps {
 
 export default function PatientOverview({ user, patient, onUpgradeClick, isMember, isPendingApproval }: PatientOverviewProps) {
   const [showQRModal, setShowQRModal] = useState(false);
+  const [prescribedExercises, setPrescribedExercises] = useState<any[]>([]);
+  const [assignedTherapistName, setAssignedTherapistName] = useState<string | null>(null);
+
   const completedSessions = patient?.attendance?.length || 0;
   const totalSessions = patient?.membership?.totalSessions || 10;
   const remainingSessions = patient?.membership?.remainingSessions || 5;
@@ -36,6 +41,22 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
     planName = 'Diamond';
     planColor = 'from-cyan-400 to-blue-500';
   }
+
+  // Real-time listener for prescribed exercises and therapist assignment
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const userDocRef = doc(db, 'users', user.id);
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setPrescribedExercises(data.prescribedExercises || []);
+        setAssignedTherapistName(data.assignedTherapistName || null);
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [user?.id]);
 
   const staggerContainer = {
     hidden: { opacity: 0 },
@@ -84,10 +105,10 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
       </motion.div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
+        {[  
           { label: 'Completed Sessions', value: completedSessions, icon: <CheckCircle className="w-6 h-6" />, color: 'red' },
           { label: 'Remaining Sessions', value: remainingSessions, icon: <Calendar className="w-6 h-6" />, color: 'blue' },
-          { label: 'Exercises Assigned', value: patient?.exercises?.length || 0, icon: <Activity className="w-6 h-6" />, color: 'red' },
+          { label: 'Exercises Assigned', value: prescribedExercises.length || 0, icon: <Activity className="w-6 h-6" />, color: 'red' },
           { 
             label: 'Total Progress', 
             value: `${Math.round(progress)}%`, 
@@ -118,6 +139,75 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
         ))}
       </div>
 
+      {/* My Treatment Plan Section */}
+      {prescribedExercises.length > 0 && assignedTherapistName && (
+        <motion.div
+          variants={slideUpVariant}
+          className="premium-glass p-6"
+        >
+          <div className="flex items-center gap-3 mb-6">
+            <Activity className="w-6 h-6 text-sky" />
+            <h2 className="text-xl font-semibold text-white">My Treatment Plan</h2>
+          </div>
+          
+          <div className="flex items-center gap-2 mb-4 p-3 bg-sky-500/10 rounded-lg">
+            <span className="text-slate-400">Assigned Therapist:</span>
+            <span className="text-sky-400 font-semibold">{assignedTherapistName}</span>
+          </div>
+
+          <div className="space-y-3">
+            {prescribedExercises.map((exercise, index) => (
+              <motion.div
+                key={index}
+                variants={slideUpVariant}
+                className="p-4 bg-white/5 rounded-xl border border-white/5"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="text-white font-semibold flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-sky-500/20 flex items-center justify-center text-xs text-sky-400">
+                        {index + 1}
+                      </span>
+                      {exercise.name || exercise.title || 'Exercise'}
+                    </h4>
+                    <p className="text-slate-400 text-sm mt-1">
+                      {exercise.description || exercise.instructions || 'No description'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-700">
+                  {exercise.duration && (
+                    <div className="text-center">
+                      <p className="text-slate-400 text-xs">Duration</p>
+                      <p className="text-white font-semibold text-sm">{exercise.duration} mins</p>
+                    </div>
+                  )}
+                  {exercise.sets && (
+                    <div className="text-center">
+                      <p className="text-slate-400 text-xs">Sets</p>
+                      <p className="text-white font-semibold text-sm">{exercise.sets}</p>
+                    </div>
+                  )}
+                  {exercise.reps && (
+                    <div className="text-center">
+                      <p className="text-slate-400 text-xs">Reps</p>
+                      <p className="text-white font-semibold text-sm">{exercise.reps}</p>
+                    </div>
+                  )}
+                  {exercise.frequency && (
+                    <div className="text-center">
+                      <p className="text-slate-400 text-xs">Frequency</p>
+                      <p className="text-white font-semibold text-sm">{exercise.frequency}</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div
           variants={slideUpVariant}
@@ -147,77 +237,77 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
           <h3 className="text-xl font-semibold text-white mb-4">Membership Status</h3>
           
           {isMember ? (
-<motion.div
-               initial={{ scale: 0.9, opacity: 0 }}
-               animate={{ scale: 1, opacity: 1 }}
-               className="space-y-3"
-             >
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                  <span className="text-slate-400">Plan</span>
-                  <div className="flex items-center gap-2">
-                    <Crown className="w-4 h-4 text-gold" />
-                    <span className="text-gold font-medium">
-                      {user.totalFees ? `Custom (${user.totalFees.toLocaleString()} PKR)` : (user.membershipType ? user.membershipType.charAt(0).toUpperCase() + user.membershipType.slice(1) : 'None')}
-                    </span>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="space-y-3"
+            >
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                <span className="text-slate-400">Plan</span>
+                <div className="flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-gold" />
+                  <span className="text-gold font-medium">
+                    {user.totalFees ? `Custom (${user.totalFees.toLocaleString()} PKR)` : (user.membershipType ? user.membershipType.charAt(0).toUpperCase() + user.membershipType.slice(1) : 'None')}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                <span className="text-slate-400">Valid Since</span>
+                <span className="text-white font-medium">
+                  {user.membershipRequestDate ? new Date(user.membershipRequestDate).toLocaleDateString() : 'N/A'}
+                </span>
+              </div>
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowQRModal(true)}
+                className="flex items-center justify-between p-3 bg-white/5 rounded-xl cursor-pointer hover:shadow-crimson-glow transition-all"
+              >
+                <span className="text-slate-400">QR Code</span>
+                <div className="flex items-center gap-2">
+                  <QRCodeSVG value={user.id} className="w-5 h-5 text-primary" />
+                  <span className="text-primary text-sm font-mono">{user.id.substring(0, 8)}</span>
+                </div>
+              </motion.div>
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowQRModal(true)}
+                className="mt-4 p-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl border border-blue-500/30 cursor-pointer hover:shadow-crimson-glow transition-all"
+              >
+                <div className="flex items-center justify-center">
+                  <div className="w-32 h-32 bg-white rounded-xl p-2 flex items-center justify-center">
+                    <QRCodeSVG value={user.id} className="w-full h-full" />
                   </div>
                 </div>
-               <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                 <span className="text-slate-400">Valid Since</span>
-                 <span className="text-white font-medium">
-                   {user.membershipRequestDate ? new Date(user.membershipRequestDate).toLocaleDateString() : 'N/A'}
-                 </span>
-               </div>
-               <motion.div
-                 whileHover={{ scale: 1.02 }}
-                 whileTap={{ scale: 0.98 }}
-                 onClick={() => setShowQRModal(true)}
-                  className="flex items-center justify-between p-3 bg-white/5 rounded-xl cursor-pointer hover:shadow-crimson-glow transition-all"
-               >
-                 <span className="text-slate-400">QR Code</span>
-                 <div className="flex items-center gap-2">
-                   <QRCodeSVG value={user.id} className="w-5 h-5 text-primary" />
-                   <span className="text-primary text-sm font-mono">{user.id.substring(0, 8)}</span>
-                 </div>
-               </motion.div>
-               <motion.div
-                 whileHover={{ scale: 1.02 }}
-                 whileTap={{ scale: 0.98 }}
-                 onClick={() => setShowQRModal(true)}
-                  className="mt-4 p-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl border border-blue-500/30 cursor-pointer hover:shadow-crimson-glow transition-all"
-               >
-                 <div className="flex items-center justify-center">
-                   <div className="w-32 h-32 bg-white rounded-xl p-2 flex items-center justify-center">
-                     <QRCodeSVG value={user.id} className="w-full h-full" />
-                   </div>
-                 </div>
-                 <p className="text-center text-xs text-slate-400 mt-2">Scan to mark attendance</p>
-               </motion.div>
-             </motion.div>
-           ) : isPendingApproval ? (
-             <div className="text-center py-8">
-               <motion.div
-                 animate={{ scale: [1, 1.1] }}
-                 transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                 className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center"
-               >
-                 <Clock className="w-8 h-8 text-amber-500" />
-               </motion.div>
-               <p className="text-amber-400 font-semibold mb-2">Pending Approval</p>
-               <p className="text-slate-400 text-sm">Your membership request is being reviewed.</p>
-             </div>
-           ) : (
-             <div className="text-center py-8">
-               <p className="text-slate-400 mb-4">You're not a member yet</p>
-               <motion.button
-                 whileHover={{ scale: 1.02 }}
-                 whileTap={{ scale: 0.98 }}
-                 onClick={onUpgradeClick}
-                 className="glass-button blue"
-               >
-                 Upgrade to Member
-               </motion.button>
-             </div>
-           )}
+                <p className="text-center text-xs text-slate-400 mt-2">Scan to mark attendance</p>
+              </motion.div>
+            </motion.div>
+          ) : isPendingApproval ? (
+            <div className="text-center py-8">
+              <motion.div
+                animate={{ scale: [1, 1.1] }}
+                transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center"
+              >
+                <Clock className="w-8 h-8 text-amber-500" />
+              </motion.div>
+              <p className="text-amber-400 font-semibold mb-2">Pending Approval</p>
+              <p className="text-slate-400 text-sm">Your membership request is being reviewed.</p>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-slate-400 mb-4">You're not a member yet</p>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={onUpgradeClick}
+                className="glass-button blue"
+              >
+                Upgrade to Member
+              </motion.button>
+            </div>
+          )}
         </motion.div>
       </div>
 
