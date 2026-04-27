@@ -16,6 +16,8 @@ export interface User {
   membershipStatus?: 'pending' | 'active' | 'expired' | 'pendingApproval' | 'rejected';
   membershipType?: 'silver' | 'gold' | 'platinum' | 'custom';
   totalFees?: number;
+  totalSessions?: number;
+  completedSessions?: number;
   membershipRequestDate?: Date;
   submittedTrxID?: string;
   profileCompleted?: boolean;

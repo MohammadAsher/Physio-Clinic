@@ -1,11 +1,19 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans } from 'next/font/google';
+import { Poppins, Playfair_Display } from 'next/font/google';
 import './globals.css';
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const poppins = Poppins({
   subsets: ['latin'],
-  variable: '--font-plus-jakarta',
+  variable: '--font-poppins',
+  weight: ['300', '400', '500', '600', '700'],
   display: 'swap',
+});
+
+const playfairDisplay = Playfair_Display({
+  subsets: ['latin'],
+  variable: '--font-playfair-display',
+  display: 'swap',
+  weight: ['400', '500', '600', '700'],
 });
 
 export const metadata: Metadata = {
@@ -19,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${plusJakartaSans.variable} font-sans antialiased`}>
-      <body className="font-[family-name:var(--font-plus-jakarta)]">{children}</body>
+    <html lang="en" className={`${poppins.variable} ${playfairDisplay.variable} font-sans antialiased`}>
+      <body className="font-[family-name:var(--font-poppins)]">{children}</body>
     </html>
   );
 }

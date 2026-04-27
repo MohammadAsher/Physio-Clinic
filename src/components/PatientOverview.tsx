@@ -19,30 +19,12 @@ interface PatientOverviewProps {
 
 export default function PatientOverview({ user, patient, onUpgradeClick, isMember, isPendingApproval }: PatientOverviewProps) {
   const [showQRModal, setShowQRModal] = useState(false);
-  const [prescribedExercises, setPrescribedExercises] = useState<any[]>([]);
+  const [assignedExercises, setAssignedExercises] = useState<any[]>([]);
   const [assignedTherapistName, setAssignedTherapistName] = useState<string | null>(null);
 
-  const completedSessions = patient?.attendance?.length || 0;
-  const totalSessions = patient?.membership?.totalSessions || 10;
-  const remainingSessions = patient?.membership?.remainingSessions || 5;
-  const progress = totalSessions > 0 ? ((totalSessions - remainingSessions) / totalSessions) * 100 : 0;
-  
-  const membershipAmount = user.totalFees || 0;
-  let planName = 'Basic';
-  let planColor = 'from-slate-400 to-slate-600';
-  
-  if (membershipAmount >= 3000 && membershipAmount <= 7000) {
-    planName = 'Silver';
-    planColor = 'from-slate-300 to-slate-400';
-  } else if (membershipAmount >= 8000 && membershipAmount <= 12000) {
-    planName = 'Gold';
-    planColor = 'from-amber-400 to-amber-600';
-  } else if (membershipAmount > 12000) {
-    planName = 'Diamond';
-    planColor = 'from-cyan-400 to-blue-500';
-  }
+   const [userData, setUserData] = useState<any>(null);
 
-  // Real-time listener for prescribed exercises and therapist assignment
+  // Real-time listener for user data to get session counts and assigned exercises
   useEffect(() => {
     if (!user?.id) return;
     
@@ -50,7 +32,8 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
     const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setPrescribedExercises(data.prescribedExercises || []);
+        setUserData(data);
+        setAssignedExercises(data.assignedExercises || []);
         setAssignedTherapistName(data.assignedTherapistName || null);
       }
     });
@@ -58,7 +41,34 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
     return () => unsubscribe();
   }, [user?.id]);
 
-  const staggerContainer = {
+  const completedSessions = userData?.completedSessions || 0;
+  const totalSessions = userData?.totalSessions || 0;
+  const remainingSessions = totalSessions > 0 ? totalSessions - completedSessions : 0;
+  const progress = totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0;
+  
+   const prescribedExercises = userData?.prescribedExercises || [];
+     
+   const membershipAmount = user.totalFees || 0;
+
+   // Compute plan color and name
+   const getPlanDetails = () => {
+     if (!isMember || !user.totalFees) {
+       return { planColor: 'from-gray-500 to-gray-600', planName: 'No Plan' };
+     }
+     const amount = user.totalFees;
+     if (amount >= 3000 && amount <= 7000) {
+       return { planColor: 'from-slate-400 to-slate-500', planName: 'Silver' };
+     } else if (amount > 7000 && amount <= 12000) {
+       return { planColor: 'from-amber-400 to-yellow-500', planName: 'Gold' };
+     } else if (amount > 12000) {
+       return { planColor: 'from-blue-400 to-purple-500', planName: 'Diamond' };
+     }
+     return { planColor: 'from-gray-500 to-gray-600', planName: 'Custom' };
+   };
+
+   const { planColor, planName } = getPlanDetails();
+
+   const staggerContainer = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
@@ -108,7 +118,7 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
         {[  
           { label: 'Completed Sessions', value: completedSessions, icon: <CheckCircle className="w-6 h-6" />, color: 'red' },
           { label: 'Remaining Sessions', value: remainingSessions, icon: <Calendar className="w-6 h-6" />, color: 'blue' },
-          { label: 'Exercises Assigned', value: prescribedExercises.length || 0, icon: <Activity className="w-6 h-6" />, color: 'red' },
+           { label: 'Exercises Assigned', value: (patient?.prescribedExercises?.length || 0), icon: <Activity className="w-6 h-6" />, color: 'red' },
           { 
             label: 'Total Progress', 
             value: `${Math.round(progress)}%`, 
@@ -139,74 +149,74 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
         ))}
       </div>
 
-      {/* My Treatment Plan Section */}
-      {prescribedExercises.length > 0 && assignedTherapistName && (
-        <motion.div
-          variants={slideUpVariant}
-          className="premium-glass p-6"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <Activity className="w-6 h-6 text-sky" />
-            <h2 className="text-xl font-semibold text-white">My Treatment Plan</h2>
-          </div>
-          
-          <div className="flex items-center gap-2 mb-4 p-3 bg-sky-500/10 rounded-lg">
-            <span className="text-slate-400">Assigned Therapist:</span>
-            <span className="text-sky-400 font-semibold">{assignedTherapistName}</span>
-          </div>
-
-          <div className="space-y-3">
-            {prescribedExercises.map((exercise, index) => (
-              <motion.div
-                key={index}
-                variants={slideUpVariant}
-                className="p-4 bg-white/5 rounded-xl border border-white/5"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h4 className="text-white font-semibold flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-sky-500/20 flex items-center justify-center text-xs text-sky-400">
-                        {index + 1}
-                      </span>
-                      {exercise.name || exercise.title || 'Exercise'}
-                    </h4>
-                    <p className="text-slate-400 text-sm mt-1">
-                      {exercise.description || exercise.instructions || 'No description'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-700">
-                  {exercise.duration && (
-                    <div className="text-center">
-                      <p className="text-slate-400 text-xs">Duration</p>
-                      <p className="text-white font-semibold text-sm">{exercise.duration} mins</p>
-                    </div>
-                  )}
-                  {exercise.sets && (
-                    <div className="text-center">
-                      <p className="text-slate-400 text-xs">Sets</p>
-                      <p className="text-white font-semibold text-sm">{exercise.sets}</p>
-                    </div>
-                  )}
-                  {exercise.reps && (
-                    <div className="text-center">
-                      <p className="text-slate-400 text-xs">Reps</p>
-                      <p className="text-white font-semibold text-sm">{exercise.reps}</p>
-                    </div>
-                  )}
-                  {exercise.frequency && (
-                    <div className="text-center">
-                      <p className="text-slate-400 text-xs">Frequency</p>
-                      <p className="text-white font-semibold text-sm">{exercise.frequency}</p>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      )}
+       {/* My Treatment Plan Section */}
+       {assignedExercises.length > 0 && assignedTherapistName && (
+         <motion.div
+           variants={slideUpVariant}
+           className="premium-glass p-6"
+         >
+           <div className="flex items-center gap-3 mb-6">
+             <Activity className="w-6 h-6 text-sky" />
+             <h2 className="text-xl font-semibold text-white">My Treatment Plan</h2>
+           </div>
+           
+           <div className="flex items-center gap-2 mb-4 p-3 bg-sky-500/10 rounded-lg">
+             <span className="text-slate-400">Assigned Therapist:</span>
+             <span className="text-sky-400 font-semibold">{assignedTherapistName}</span>
+           </div>
+ 
+           <div className="space-y-3">
+             {assignedExercises.map((exercise, index) => (
+               <motion.div
+                 key={index}
+                 variants={slideUpVariant}
+                 className="p-4 bg-white/5 rounded-xl border border-white/5"
+               >
+                 <div className="flex items-start justify-between">
+                   <div className="flex-1">
+                     <h4 className="text-white font-semibold flex items-center gap-2">
+                       <span className="w-6 h-6 rounded-full bg-sky-500/20 flex items-center justify-center text-xs text-sky-400">
+                         {index + 1}
+                       </span>
+                       {exercise.name || exercise.title || 'Exercise'}
+                     </h4>
+                     <p className="text-slate-400 text-sm mt-1">
+                       {exercise.description || exercise.instructions || 'No description'}
+                     </p>
+                   </div>
+                 </div>
+ 
+                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-700">
+                   {exercise.duration && (
+                     <div className="text-center">
+                       <p className="text-slate-400 text-xs">Duration</p>
+                       <p className="text-white font-semibold text-sm">{exercise.duration} mins</p>
+                     </div>
+                   )}
+                   {exercise.sets && (
+                     <div className="text-center">
+                       <p className="text-slate-400 text-xs">Sets</p>
+                       <p className="text-white font-semibold text-sm">{exercise.sets}</p>
+                     </div>
+                   )}
+                   {exercise.reps && (
+                     <div className="text-center">
+                       <p className="text-slate-400 text-xs">Reps</p>
+                       <p className="text-white font-semibold text-sm">{exercise.reps}</p>
+                     </div>
+                   )}
+                   {exercise.frequency && (
+                     <div className="text-center">
+                       <p className="text-slate-400 text-xs">Frequency</p>
+                       <p className="text-white font-semibold text-sm">{exercise.frequency}</p>
+                     </div>
+                   )}
+                 </div>
+               </motion.div>
+             ))}
+           </div>
+         </motion.div>
+       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div

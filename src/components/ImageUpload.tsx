@@ -130,7 +130,7 @@ export default function ImageUpload({ currentImage, userId, onImageUpload, size 
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         onClick={() => !uploading && fileInputRef.current?.click()}
-        className={`${sizeClasses[size]} rounded-full overflow-hidden border-2 border-white/20 cursor-pointer hover:border-rose-500 hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] transition-all`}
+        className={`${sizeClasses[size]} rounded-full overflow-hidden border-2 border-rose-400/60 cursor-pointer hover:border-rose-500 hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] transition-all`}
       >
         {preview ? (
           <img

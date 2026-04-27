@@ -8,10 +8,11 @@ import { collection, getDocs, updateDoc, doc, addDoc, onSnapshot, query, where }
 import { User } from '@/types';
 import CounterAnimation from './CounterAnimation';
 import MedicalEmptyState from './MedicalEmptyState';
+import RoleBasedQuotes from './RoleBasedQuotes';
 
 interface AdminDashboardProps {
   users: User[];
-  onAssignRole: (userId: string, role: 'patient' | 'doctor') => void;
+  onAssignRole: (userId: string, role: 'patient' | 'doctor' | 'therapist') => void;
   onLogout: () => void;
 }
 
@@ -85,30 +86,32 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
     }
   };
 
-  const handleApproveMembership = async (requestId: string, userId: string, totalFees: number) => {
-    if (!totalFees || totalFees <= 0) return;
-    try {
-      // Update the membership request status
-      await updateDoc(doc(db, 'membershipRequests', requestId), {
-        status: 'approved',
-        approvedAt: new Date(),
-        totalFees: totalFees
-      });
-      
-      // Update the patient's user document
-      await updateDoc(doc(db, 'users', userId), {
-        isMember: true,
-        membershipStatus: 'active',
-        membershipType: 'custom',
-        totalFees: totalFees
-      });
-      
-      setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 3000);
-    } catch (err) {
-      console.error('Error approving membership:', err);
-    }
-  };
+   const handleApproveMembership = async (requestId: string, userId: string, totalSessions: number) => {
+      if (!totalSessions || totalSessions <= 0) return;
+      const totalSessionsNum = Number(totalSessions);
+      try {
+        // Update the membership request status
+        await updateDoc(doc(db, 'membershipRequests', requestId), {
+          status: 'approved',
+          approvedAt: new Date(),
+          totalSessions: totalSessionsNum
+        });
+        
+        // Update the patient's user document
+        await updateDoc(doc(db, 'users', userId), {
+          isMember: true,
+          membershipStatus: 'active',
+          membershipType: 'custom',
+          totalSessions: totalSessionsNum,
+          completedSessions: 0
+        });
+       
+       setShowConfetti(true);
+       setTimeout(() => setShowConfetti(false), 3000);
+     } catch (err) {
+       console.error('Error approving membership:', err);
+     }
+   };
 
   const handleRejectMembership = async (requestId: string, userId: string) => {
     try {
@@ -222,6 +225,11 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
           )}
         </AnimatePresence>
 
+        {/* Role-Based Quotes Section */}
+        <div className="py-6">
+          <RoleBasedQuotes role="admin" />
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           {[
             { label: 'Patients', value: patients.length, icon: <Users className="w-5 h-5" />, color: 'blue', accent: 'from-blue-500 to-cyan-500' },
@@ -274,11 +282,11 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
                 <div key={patient.id} className="p-4 bg-white/5 rounded-xl">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center">
-                        <span className="text-white font-semibold">
-                          {patient.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
+                       <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center border-2 border-rose-400/60">
+                         <span className="text-white font-semibold">
+                           {patient.name.charAt(0).toUpperCase()}
+                         </span>
+                       </div>
                       <div>
                         <p className="text-white font-medium">{patient.name}</p>
                         <p className="text-slate-400 text-sm">{patient.email}</p>
@@ -333,11 +341,11 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
                 <div key={request.id} className="p-4 bg-white/5 rounded-xl">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                        <span className="text-purple-400 font-semibold">
-                          {patient.name.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
+                       <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center border-2 border-rose-400/60">
+                         <span className="text-purple-400 font-semibold">
+                           {patient.name.charAt(0).toUpperCase()}
+                         </span>
+                       </div>
                       <div>
                         <p className="text-white font-medium">{patient.name}</p>
                         <p className="text-slate-400 text-xs">
@@ -354,41 +362,41 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
                     </div>
                   )}
                   
-                  <div className="flex gap-2 flex-col sm:flex-row">
-                    <div className="flex-1">
-                      <label className="text-slate-400 text-xs mb-1 block">Total Fees Paid (PKR)</label>
-                      <input
-                        type="number"
-                        placeholder="e.g., 15000"
-                        value={feeInputs[patient.id] || ''}
-                        onChange={(e) => setFeeInputs({ ...feeInputs, [patient.id]: e.target.value })}
-                        className="glass-input w-full text-sm py-2"
-                      />
-                    </div>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => {
-                        const fee = Number(feeInputs[patient.id]);
-                        if (fee > 0) {
-                          handleApproveMembership(request.id, patient.id, fee);
-                        }
-                      }}
-                       className="flex-1 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm hover:bg-emerald-500/30 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Check className="w-4 h-4" />
-                      Approve
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => handleRejectMembership(request.id, patient.id)}
-                       className="flex-1 px-3 py-2 rounded-lg bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors flex items-center justify-center gap-2"
-                    >
-                      <XCircle className="w-4 h-4" />
-                      Reject
-                    </motion.button>
-                  </div>
+                   <div className="flex gap-2 flex-col sm:flex-row">
+                     <div className="flex-1">
+                       <label className="text-slate-400 text-xs mb-1 block">Total Sessions</label>
+                       <input
+                         type="number"
+                         placeholder="e.g., 5, 10, 12"
+                         value={feeInputs[patient.id] || ''}
+                         onChange={(e) => setFeeInputs({ ...feeInputs, [patient.id]: e.target.value })}
+                         className="glass-input w-full text-sm py-2"
+                       />
+                     </div>
+                     <motion.button
+                       whileHover={{ scale: 1.05 }}
+                       whileTap={{ scale: 0.95 }}
+                       onClick={() => {
+                         const totalSessions = Number(feeInputs[patient.id]);
+                         if (totalSessions > 0) {
+                           handleApproveMembership(request.id, patient.id, totalSessions);
+                         }
+                       }}
+                        className="flex-1 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm hover:bg-emerald-500/30 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors flex items-center justify-center gap-2"
+                     >
+                       <Check className="w-4 h-4" />
+                       Approve
+                     </motion.button>
+                     <motion.button
+                       whileHover={{ scale: 1.05 }}
+                       whileTap={{ scale: 0.95 }}
+                       onClick={() => handleRejectMembership(request.id, patient.id)}
+                        className="flex-1 px-3 py-2 rounded-lg bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors flex items-center justify-center gap-2"
+                     >
+                       <XCircle className="w-4 h-4" />
+                       Reject
+                     </motion.button>
+                   </div>
                 </div>
                 )}
               )}
@@ -418,11 +426,11 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
               <div key={patient.id} className="p-4 bg-white/5 rounded-xl">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center">
-                      <span className="text-white font-semibold">
-                        {patient.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
+                     <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center border-2 border-rose-400/60">
+                       <span className="text-white font-semibold">
+                         {patient.name.charAt(0).toUpperCase()}
+                       </span>
+                     </div>
                     <div>
                       <p className="text-white font-medium">{patient.name}</p>
                       <p className="text-slate-400 text-xs">Dr. {patient.assignedDoctorName}</p>
@@ -482,37 +490,47 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
                 className="flex flex-wrap items-center justify-between gap-3 p-4 bg-white/5 rounded-xl hover:shadow-[0_0_30px_rgba(220,38,38,0.3)]"
               >
                 <div className="flex items-center gap-4 flex-1 min-w-[200px]">
-                  <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center">
-                    <span className="text-white font-semibold">
-                      {user.name.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
+                   <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center border-2 border-rose-400/60">
+                     <span className="text-white font-semibold">
+                       {user.name.charAt(0).toUpperCase()}
+                     </span>
+                   </div>
                   <div className="min-w-0">
                     <p className="text-white font-medium truncate">{user.name}</p>
                     <p className="text-slate-400 text-sm truncate">{user.email}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    user.role === 'doctor' 
-                      ? 'bg-primary/20 text-primary' 
-                      : user.role === 'admin'
-                      ? 'bg-purple-500/20 text-purple-400'
-                      : 'bg-sky/20 text-sky'
-                  }`}>
-                    {user.role}
-                  </span>
-                  {user.role === 'patient' && (
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => onAssignRole(user.id, 'doctor')}
-                      className="px-3 py-1 rounded-lg bg-primary/20 text-primary text-sm hover:bg-primary/30 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] transition-colors"
-                    >
-                      Make Doctor
-                    </motion.button>
-                  )}
-                </div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      user.role === 'doctor' 
+                        ? 'bg-primary/20 text-primary' 
+                        : user.role === 'admin'
+                        ? 'bg-purple-500/20 text-purple-400'
+                        : user.role === 'therapist'
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-sky/20 text-sky'
+                    }`}>
+                      {user.role}
+                    </span>
+                    {user.role === 'patient' && (
+                      <div className="relative">
+                        <select
+                          value={user.role}
+                          onChange={(e) => {
+                            const role = e.target.value;
+                            if (role !== 'patient') {
+                              onAssignRole(user.id, role);
+                            }
+                          }}
+                          className="bg-slate-800/50 text-white px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        >
+                          <option value="patient">Patient</option>
+                          <option value="doctor">Doctor</option>
+                          <option value="therapist">Therapist</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
               </motion.div>
             ))}
             {users.length === 0 && (

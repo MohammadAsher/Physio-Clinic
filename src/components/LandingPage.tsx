@@ -2,8 +2,13 @@
 
 import { useRef, useState } from 'react';
 import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion';
-import { Activity, Heart, Brain, Baby, Dumbbell, Bone, ArrowRight, CheckCircle, Clock, Calendar, X, UserCircle, Award, CalendarCheck, Sparkles } from 'lucide-react';
+import { Heart, Dumbbell, ArrowRight, CheckCircle, Clock, Calendar, X, UserCircle, Award, CalendarCheck, Sparkles } from 'lucide-react';
 import Logo from './Logo';
+import OurServices from './OurServices';
+import PremiumImageCarousel from './PremiumImageCarousel';
+import RoleBasedQuotes from './RoleBasedQuotes';
+import { servicesData, heroCarouselImages } from '@/lib/servicesData';
+import Link from 'next/link';
 
 interface DoctorData {
   id: string;
@@ -27,44 +32,6 @@ interface LandingPageProps {
   onSignup: () => void;
   doctors?: DoctorData[];
 }
-
-const services = [
-  {
-    id: 1,
-    title: "Children's Therapy",
-    description: "Gentle, playful therapy techniques to support motor development, improve mobility, and address congenital conditions in children.",
-    image: 'https://images.unsplash.com/photo-1584030373081-f37b4bb6a921?w=600&h=400&fit=crop',
-    icon: 'baby',
-  },
-  {
-    id: 2,
-    title: 'Ortho-Neuro-Sports Physiotherapy',
-    description: 'Comprehensive care covering orthopedic injury recovery, neurological rehabilitation, and sports performance enhancement in one place.',
-    image: 'https://images.unsplash.com/photo-1597452485669-2c7bb5fef90d?w=600&h=400&fit=crop',
-    icon: 'activity',
-  },
-  {
-    id: 3,
-    title: 'Back & Neck Pain Treatment',
-    description: 'Specialized manual therapy and exercises to alleviate chronic back and neck pain, improve posture, and restore spinal health.',
-    image: 'https://images.unsplash.com/photo-1562375732-d7-5862d2d5f3b?w=600&h=400&fit=crop',
-    icon: 'bone',
-  },
-  {
-    id: 4,
-    title: 'Neuro Rehabilitation',
-    description: 'Focused rehabilitation for stroke, Parkinson\'s, and spinal cord injuries to regain motor function and independence.',
-    image: 'https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=600&h=400&fit=crop',
-    icon: 'brain',
-  },
-];
-
-const serviceIcons: Record<string, React.ReactNode> = {
-  baby: <Baby className="w-8 h-8" />,
-  activity: <Activity className="w-8 h-8" />,
-  bone: <Bone className="w-8 h-8" />,
-  brain: <Brain className="w-8 h-8" />,
-};
 
 const DUMMY_DOCTORS: DoctorData[] = [
   {
@@ -166,7 +133,7 @@ interface SectionProps {
 
 function Section({ children, className }: SectionProps) {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: '-100px' });
+  const isInView = useInView(ref, { once: false, margin: '-100px' });
 
   return (
     <motion.section
@@ -200,16 +167,16 @@ function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctor
 
   return (
     <section ref={ref} className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* Premium Carousel Background */}
       <motion.div style={{ y }} className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" />
-        <div 
-          className="absolute inset-0 opacity-30"
-          style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?w=1920&h=1080&fit=crop')`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
+        <PremiumImageCarousel
+          images={heroCarouselImages}
+          interval={5000}
+          showControls={false}
+          showIndicators={true}
+          height="h-full"
         />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-slate-900" />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-slate-900/50" />
       </motion.div>
 
@@ -243,15 +210,31 @@ function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctor
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
         >
+          <div className="inline-block mb-6">
+            <span className="px-4 py-2 rounded-full bg-gradient-to-r from-rose-500/20 to-crimson-500/20 border border-rose-500/30 text-rose-300 text-sm font-medium">
+              Premium Physiotherapy Care
+            </span>
+          </div>
         </motion.div>
+
+        <motion.h1
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+          className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight"
+          style={{ fontFamily: 'var(--font-playfair-display)' }}
+        >
+          Restore Your <br />
+          <span className="text-gradient">Movement & Vitality</span>
+        </motion.h1>
 
         <motion.p
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
-          className="text-xl md:text-2xl text-slate-300 mb-10 max-w-3xl mx-auto"
+          className="text-xl md:text-2xl text-slate-300 mb-10 max-w-3xl mx-auto leading-relaxed"
         >
-          Expert physiotherapy tailored to your recovery journey. Track your progress, manage sessions, and heal faster.
+          Expert physiotherapy tailored to your recovery journey. Track your progress, manage sessions, and heal faster with our certified specialists.
         </motion.p>
 
         <motion.div
@@ -264,16 +247,16 @@ function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctor
             whileHover={{ scale: 1.05, boxShadow: '0 8px 32px rgba(225, 29, 72, 0.4)' }}
             whileTap={{ scale: 0.95 }}
             onClick={onSignup}
-            className="px-8 py-4 text-lg flex items-center justify-center gap-2 bg-gradient-to-r from-rose-600 to-crimson-700 text-white font-bold rounded-2xl shadow-lg shadow-rose-900/30 backdrop-blur-xl border border-white/10 hover:border-rose-500/30 transition-all"
+            className="px-10 py-5 text-xl flex items-center justify-center gap-3 bg-gradient-to-r from-rose-600 to-crimson-700 text-white font-bold rounded-2xl shadow-lg shadow-rose-900/30 backdrop-blur-xl border border-white/10 hover:border-rose-500/30 transition-all"
           >
-            Get Started
-            <ArrowRight className="w-5 h-5" />
+            Start Your Journey
+            <ArrowRight className="w-6 h-6" />
           </motion.button>
           <motion.button
             whileHover={{ scale: 1.05, boxShadow: '0 8px 32px rgba(255, 255, 255, 0.1)' }}
             whileTap={{ scale: 0.95 }}
             onClick={onLogin}
-            className="px-8 py-4 text-lg bg-white/5 text-white font-bold rounded-2xl border border-white/10 backdrop-blur-xl shadow-lg hover:border-white/20 transition-all"
+            className="px-10 py-5 text-xl bg-white/5 text-white font-bold rounded-2xl border border-white/10 backdrop-blur-xl shadow-lg hover:border-white/20 hover:bg-white/10 transition-all"
           >
             Sign In
           </motion.button>
@@ -284,7 +267,7 @@ function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctor
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1.2, duration: 1 }}
-        className="absolute bottom-10 left-1/2 -translate-x-1/2"
+        className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20"
       >
         <motion.div
           animate={{ y: [0, 10, 0] }}
@@ -306,7 +289,7 @@ function WhatIsPhysiotherapySection() {
           initial={{ opacity: 0, scale: 0.9 }}
           whileInView={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8 }}
-          viewport={{ once: true }}
+          viewport={{ once: false }}
           className="glass-card p-8 md:p-12"
         >
           <div className="flex items-center gap-4 mb-6">
@@ -334,7 +317,7 @@ function WhatIsPhysiotherapySection() {
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1, duration: 0.5 }}
-                viewport={{ once: true }}
+                viewport={{ once: false }}
                 className="flex items-center gap-3 p-3 bg-white/5 rounded-xl"
               >
                 <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
@@ -350,55 +333,122 @@ function WhatIsPhysiotherapySection() {
 
 function ServicesSection() {
   return (
-    <Section className="py-20 px-4">
+    <Section className="py-20 px-4 bg-slate-950">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-white mb-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false }}
+          transition={{ duration: 0.8 }}
+          className="text-center mb-16"
+        >
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4" style={{ fontFamily: 'var(--font-playfair-display)' }}>
             Our <span className="text-gradient">Specialized Services</span>
           </h2>
           <p className="text-slate-400 text-lg max-w-2xl mx-auto">
             Comprehensive physiotherapy solutions tailored to your specific needs
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {services.map((service, index) => (
-            <motion.div
-              key={service.id}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.15, duration: 0.6 }}
-              viewport={{ once: true }}
-              whileHover={{ y: -10 }}
-              className="glass-card overflow-hidden group cursor-pointer"
-            >
-              <div className="relative h-48 overflow-hidden">
-                <motion.div
-                  whileHover={{ scale: 1.1 }}
-                  transition={{ duration: 0.4 }}
-                  className="absolute inset-0"
-                  style={{
-                    backgroundImage: `url('${service.image}')`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent" />
-                <div className="absolute bottom-4 left-4 w-10 h-10 rounded-lg red-gradient flex items-center justify-center text-white">
-                  {serviceIcons[service.icon]}
+        <div className="space-y-16">
+          {servicesData.map((service, index) => {
+            const isEven = index % 2 === 0;
+            
+            return (
+              <motion.div
+                key={service.id}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: false, margin: '-100px' }}
+                transition={{ duration: 0.8, delay: index * 0.1 }}
+              >
+                {/* Service Card with generous padding */}
+                <div className="glass-card p-8 md:p-12 hover:shadow-crimson-intense transition-all duration-500 group">
+                  <div className={`flex flex-col ${isEven ? 'lg:flex-row' : 'lg:flex-row-reverse'} gap-12 items-center`}>
+                    
+                    {/* Image Side */}
+                    <div className="w-full lg:w-1/2">
+                      <div className="relative h-[400px] rounded-2xl overflow-hidden border border-white/10 shadow-xl">
+                        <motion.div
+                          whileHover={{ scale: 1.03 }}
+                          className="absolute inset-0"
+                          style={{
+                            backgroundImage: `url('${service.image}')`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/40" />
+
+                        {/* Service Icon Badge - Top Right */}
+                        {service.iconImage && (
+                          <div className="absolute top-4 right-4 z-10">
+                            <div className="w-16 h-16 rounded-xl border-2 border-rose-400/60 overflow-hidden shadow-lg bg-slate-900">
+                              <img
+                                src={service.iconImage}
+                                alt={service.title}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Content Side */}
+                    <div className="w-full lg:w-1/2 flex flex-col justify-center">
+                      <div className="mb-4">
+                        <span className="inline-block px-4 py-2 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 text-sm font-semibold uppercase tracking-wider">
+                          Service {service.id}
+                        </span>
+                      </div>
+
+                      <h3 className="text-3xl md:text-4xl font-bold text-white mb-4 leading-tight" style={{ fontFamily: 'var(--font-playfair-display)' }}>
+                        {service.title}
+                      </h3>
+
+                      <p className="text-lg text-slate-300 leading-relaxed mb-6">
+                        {service.description}
+                      </p>
+
+                      {/* Pricing Badge - Placed under description */}
+                      <div className="mb-6">
+                        <div className="inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-gradient-to-r from-rose-600/90 to-crimson-700/90 backdrop-blur-md border border-white/20 shadow-lg">
+                          <div>
+                            <div className="text-white font-bold text-xl">{service.price}</div>
+                            <div className="text-white/70 text-xs">{service.duration}</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Benefits */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+                        {service.benefits.slice(0, 4).map((benefit, i) => (
+                          <div key={i} className="flex items-start gap-3 p-2">
+                            <CheckCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+                            <span className="text-slate-300 text-sm leading-snug">{benefit}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* CTA */}
+                      <Link href={`/treatments/${service.id}`}>
+                        <motion.div
+                          whileHover={{ scale: 1.03, x: 8 }}
+                          whileTap={{ scale: 0.97 }}
+                          className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-rose-600 to-crimson-700 text-white font-bold rounded-2xl border border-white/10 shadow-lg shadow-rose-900/40 hover:shadow-crimson-intense transition-all group cursor-pointer w-fit"
+                        >
+                          <span>View Treatment Details</span>
+                          <ArrowRight className="w-5 h-5 group-hover:translate-x-1.5 transition-transform" />
+                        </motion.div>
+                      </Link>
+                    </div>
+
+                  </div>
                 </div>
-              </div>
-
-              <div className="p-5">
-                <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-primary transition-colors">
-                  {service.title}
-                </h3>
-                <p className="text-slate-400 text-sm leading-relaxed">
-                  {service.description}
-                </p>
-              </div>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </Section>
@@ -432,7 +482,7 @@ function WhyChooseUsSection() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1, duration: 0.5 }}
-              viewport={{ once: true }}
+              viewport={{ once: false }}
               className="glass-card p-6 text-center"
             >
               <div className="w-12 h-12 mx-auto mb-4 rounded-xl red-gradient flex items-center justify-center">
@@ -455,7 +505,7 @@ function CTASection({ onSignup }: { onSignup: () => void }) {
         initial={{ opacity: 0, scale: 0.95 }}
         whileInView={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.8 }}
-        viewport={{ once: true }}
+        viewport={{ once: false }}
         className="max-w-4xl mx-auto glass-card p-8 md:p-12 relative overflow-hidden"
       >
         <div className="absolute top-0 right-0 w-64 h-64 red-gradient opacity-20 rounded-full blur-3xl" />
@@ -496,13 +546,8 @@ function Footer() {
         </div>
       </div>
     </footer>
-  );
-}
-
-interface LandingPageProps {
-  onLogin: () => void;
-  onSignup: () => void;
-}
+   );
+};
 
 export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageProps) {
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorData | null>(null);
@@ -514,13 +559,23 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
 
       <ServicesSection />
       
+      
+      <OurServices />
+      
       <WhyChooseUsSection />
-      <CTASection onSignup={onSignup} />
+      
+      {/* Quotes Section */}
+      <Section className="py-20 px-4 bg-slate-900/30">
+        <RoleBasedQuotes role="guest" />
+      </Section>
 
-      <div className="py-20 px-6">
+      <CTASection onSignup={onSignup} />
+      <Section className="py-20 px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false }}
+          transition={{ duration: 0.8 }}
           className="max-w-6xl mx-auto"
         >
           <h2 className="text-4xl font-bold text-gradient text-center mb-4">Our Expert Doctors</h2>
@@ -531,7 +586,8 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
               <motion.div
                 key={doctor.id}
                 initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: false }}
                 transition={{ delay: index * 0.1 }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -540,7 +596,7 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="relative flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-rose-600 to-crimson-700 flex items-center justify-center border border-white/10 shadow-lg shadow-rose-900/20">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-rose-600 to-crimson-700 flex items-center justify-center border-2 border-rose-400/60 shadow-lg shadow-rose-900/20">
                     <span className="text-white font-bold text-xl">
                       {doctor.name.split(' ')[1]?.charAt(0) || doctor.name.charAt(0)}
                     </span>
@@ -563,7 +619,7 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
             ))}
           </div>
         </motion.div>
-      </div>
+      </Section>
 
       <AnimatePresence>
         {selectedDoctor && (
@@ -596,7 +652,7 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-                    className="w-28 h-28 mb-4 rounded-2xl bg-gradient-to-br from-rose-600 to-crimson-700 flex items-center justify-center border border-white/10 shadow-lg shadow-rose-900/30"
+                    className="w-28 h-28 mb-4 rounded-full bg-gradient-to-br from-rose-600 to-crimson-700 flex items-center justify-center border-2 border-rose-400/60 shadow-lg shadow-rose-900/30"
                   >
                     <span className="text-white font-bold text-4xl">
                       {selectedDoctor.name.split(' ')[1]?.charAt(0) || selectedDoctor.name.charAt(0)}

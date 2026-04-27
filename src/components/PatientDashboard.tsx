@@ -16,6 +16,7 @@ import SmartGreeting from './SmartGreeting';
 import DailyTip from './DailyTip';
 import MedicalEmptyState from './MedicalEmptyState';
 import FileViewerModal from './FileViewerModal';
+import RoleBasedQuotes from './RoleBasedQuotes';
 
 interface PatientDashboardProps {
   user: User;
@@ -103,18 +104,18 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
   const isPendingApproval = user?.membershipStatus === 'pendingApproval';
   const isProfileComplete = user?.profileCompleted && user?.patientProfile?.age;
 
-   useEffect(() => {
-    if (user?.id) {
-      setReports(user?.reports || []);
-      const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setReports(data?.reports || []);
-        }
-      });
-      return () => unsubscribe();
-    }
-  }, [user?.id]);
+    useEffect(() => {
+     if (user?.id) {
+       setReports(user?.reports || []);
+       const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
+         if (docSnap.exists()) {
+           const data = docSnap.data();
+           setReports(data?.reports || []);
+         }
+       });
+       return () => unsubscribe();
+     }
+   }, [user?.id]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -478,9 +479,9 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             className="mt-4 mb-6 glass-card p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center">
-                <UserCheck className="w-5 h-5 text-white" />
-              </div>
+                <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center border-2 border-rose-400/60">
+                  <UserCheck className="w-5 h-5 text-white" />
+                </div>
               <div>
                 <p className="text-slate-400 text-xs uppercase tracking-wider font-bold">Assigned Specialist</p>
                 <p className="text-white font-semibold text-lg">{user.assignedDoctorName}</p>
@@ -494,7 +495,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             className="mt-4 mb-6 glass-card p-4 bg-amber-500/5 border border-amber-500/20"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+               <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center border-2 border-rose-400/60">
                 <UserCheck className="w-5 h-5 text-amber-500" />
               </div>
               <div>
@@ -504,6 +505,11 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             </div>
           </motion.div>
         )}
+
+        {/* Role-Based Quotes Section */}
+        <section className="py-10 px-4">
+          <RoleBasedQuotes role="patient" />
+        </section>
 
         <AnimatePresence mode="wait">
           <motion.div
@@ -547,44 +553,44 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                 <X className="w-5 h-5 text-slate-400" />
               </button>
 
-               {requestSent ? (
-                 <motion.div
-                   initial={{ scale: 0.5, opacity: 0 }}
-                   animate={{ scale: 1, opacity: 1 }}
-                   className="text-center py-8"
-                 >
-                   <motion.div
-                     initial={{ scale: 0, rotate: -180 }}
-                     animate={{ scale: 1, rotate: 0 }}
-                     transition={{ type: 'spring', stiffness: 200, damping: 10 }}
-                     className="w-20 h-20 mx-auto mb-6 rounded-full premium-gradient flex items-center justify-center"
-                   >
-                     <Check className="w-10 h-10 text-white" />
-                   </motion.div>
-                   <motion.h2
-                     initial={{ y: 20, opacity: 0 }}
-                     animate={{ y: 0, opacity: 1 }}
-                     transition={{ delay: 0.2 }}
-                     className="text-2xl font-bold text-white mb-2"
-                   >
-                     Request Submitted!
-                   </motion.h2>
-                   <motion.p
-                     initial={{ y: 20, opacity: 0 }}
-                     animate={{ y: 0, opacity: 1 }}
-                     transition={{ delay: 0.3 }}
-                     className="text-slate-400"
-                   >
-                     Your membership request is pending approval. We'll review your payment and activate your membership shortly.
-                   </motion.p>
-                   <motion.div
-                     initial={{ scale: [1, 1.2, 1] }}
-                     animate={{ scale: [1, 1.2, 1] }}
-                     transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-                     className="w-4 h-4 mx-auto mt-4 rounded-full bg-emerald-400"
-                   />
-                 </motion.div>
-               ) : (
+                {requestSent ? (
+                  <motion.div
+                    initial={{ scale: 0.5, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="text-center py-8"
+                  >
+                    <motion.div
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ type: 'spring', stiffness: 200, damping: 10 }}
+                      className="w-20 h-20 mx-auto mb-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30"
+                    >
+                      <Check className="w-10 h-10 text-white" />
+                    </motion.div>
+                    <motion.h2
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                      className="text-2xl font-bold text-white mb-2"
+                    >
+                      Payment Successful!
+                    </motion.h2>
+                    <motion.p
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                      className="text-slate-400"
+                    >
+                      Waiting for Admin Approval
+                    </motion.p>
+                    <motion.div
+                      initial={{ scale: [1, 1.2, 1] }}
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+                      className="w-4 h-4 mx-auto mt-4 rounded-full bg-emerald-400"
+                    />
+                  </motion.div>
+                ) : (
                 <>
                   <div className="text-center mb-6">
                     <motion.div
@@ -654,44 +660,10 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                          <span className="text-slate-400 text-sm">JazzCash Number</span>
                          <span className="text-white font-mono">0333-1234567</span>
                        </div>
-                     </div>
-                   </div>
+                      </div>
+                    </div>
 
-                   {/* QR Code Section */}
-                   <div className="glass-card p-4 rounded-xl mb-4">
-                     <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                       <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                       </svg>
-                       Scan QR for EasyPaisa/JazzCash
-                     </h4>
-                     <motion.div
-                       initial={{ scale: 0.9, opacity: 0 }}
-                       animate={{ scale: 1, opacity: 1 }}
-                       transition={{ delay: 0.3 }}
-                       className="flex justify-center p-4 bg-white/5 rounded-xl"
-                     >
-                       <div className="w-32 h-32 bg-white rounded-xl p-3 flex items-center justify-center">
-                         <svg className="w-full h-full text-slate-800" viewBox="0 0 100 100" fill="none">
-                           <rect x="10" y="10" width="20" height="20" fill="currentColor" />
-                           <rect x="10" y="35" width="20" height="8" fill="currentColor" />
-                           <rect x="10" y="47" width="8" height="20" fill="currentColor" />
-                           <rect x="40" y="10" width="8" height="20" fill="currentColor" />
-                           <rect x="52" y="10" width="20" height="8" fill="currentColor" />
-                           <rect x="70" y="10" width="20" height="20" fill="currentColor" />
-                           <rect x="70" y="70" width="20" height="20" fill="currentColor" />
-                           <rect x="10" y="70" width="20" height="20" fill="currentColor" />
-                           <rect x="35" y="52" width="30" height="8" fill="currentColor" />
-                           <rect x="52" y="35" width="8" height="20" fill="currentColor" />
-                         </svg>
-                       </div>
-                     </motion.div>
-                     <p className="text-slate-400 text-xs text-center mt-2">
-                       Scan to pay via EasyPaisa/JazzCash
-                     </p>
-                   </div>
-
-                  <div className="mb-6">
+                   <div className="mb-6">
                     <label className="text-slate-400 text-sm mb-2 block">Enter Receipt Number or Transaction ID</label>
                     <input
                       type="text"

@@ -23,6 +23,7 @@ import DailyTip from './DailyTip';
 import CounterAnimation from './CounterAnimation';
 import FileViewerModal from './FileViewerModal';
 import { EXERCISES } from '@/lib/data';
+import RoleBasedQuotes from './RoleBasedQuotes';
 
 interface DoctorDashboardProps {
   patients: any[]; 
@@ -68,38 +69,46 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
     });
   };
 
-  const handleSaveExercises = async () => {
-    if (!selectedPatient?.id) return;
-    
-    const selectedTherapist = therapists.find(t => t.id === selectedPatient.assignedTherapistId);
-    
-    try {
-      // Save exercises with therapist assignment and lastUpdated timestamp
-      await updateDoc(doc(db, 'users', selectedPatient.id), {
-        exercises: selectedExercises,
-        prescribedExercises: selectedExercises,
-        assignedTherapistId: selectedPatient.assignedTherapistId,
-        assignedTherapistName: selectedTherapist ? selectedTherapist.name : selectedPatient.assignedTherapistName,
-        lastUpdated: new Date()
-      });
-      
-      // Update local state
-      setSelectedPatient({ 
-        ...selectedPatient, 
-        exercises: selectedExercises,
-        prescribedExercises: selectedExercises,
-        assignedTherapistId: selectedPatient.assignedTherapistId,
-        assignedTherapistName: selectedTherapist ? selectedTherapist.name : selectedPatient.assignedTherapistName,
-        lastUpdated: new Date()
-      });
-      
-      setShowExerciseModal(false);
-      alert('Exercise plan assigned successfully!');
-    } catch (err) {
-      console.error('Error saving exercises:', err);
-      alert('Failed to assign exercises. Please try again.');
-    }
-  };
+    const handleSaveExercises = async () => {
+        // Validation: Check if a therapist is selected
+        if (!selectedPatient?.assignedTherapistId) {
+          alert('Please select a therapist first');
+          return;
+        }
+
+        const selectedTherapist = therapists.find(t => t.id === selectedPatient.assignedTherapistId);
+        if (!selectedTherapist) {
+          alert('Selected therapist not found. Please select a valid therapist.');
+          return;
+        }
+
+        try {
+          // Save exercises with therapist assignment and lastUpdated timestamp
+          await updateDoc(doc(db, 'users', selectedPatient.id), {
+            assignedExercises: selectedExercises,
+            assignedTherapistId: selectedPatient.assignedTherapistId,
+            assignedTherapistName: selectedTherapist.name,
+            status: 'under_treatment',
+            lastUpdated: new Date()
+          });
+
+          // Update local state
+          setSelectedPatient({ 
+            ...selectedPatient, 
+            assignedExercises: selectedExercises,
+            assignedTherapistId: selectedPatient.assignedTherapistId,
+            assignedTherapistName: selectedTherapist.name,
+            status: 'under_treatment',
+            lastUpdated: new Date()
+          });
+
+          setShowExerciseModal(false);
+          alert('Exercise plan assigned successfully!');
+        } catch (err) {
+          console.error('Error saving exercises:', err);
+          alert('Failed to assign exercises. Please try again.');
+        }
+      };
 
   // Profile status check - use real-time state
   useEffect(() => {
@@ -397,9 +406,14 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                     Select a patient to view details and reports
                   </div>
                 )}
-              </div>
-            </div>
-          </div>
+               </div>
+             </div>
+             
+             {/* Role-Based Quotes Section */}
+             <div className="py-6">
+               <RoleBasedQuotes role="doctor" />
+             </div>
+           </div>
         </main>
       </div>
 
@@ -522,7 +536,7 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                   <option value="" className="bg-slate-900">Select a therapist...</option>
                   {therapists.map((therapist) => (
                     <option key={therapist.id} value={therapist.id} className="bg-slate-900">
-                      Dr. {therapist.name}
+                      {therapist.name}
                     </option>
                   ))}
                 </select>
