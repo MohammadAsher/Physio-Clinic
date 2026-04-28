@@ -51,9 +51,9 @@ export default function OurServices() {
           ))}
         </div>
 
-        {/* Service Details Preview - First 2 Services as Example Cards */}
+        {/* Service Details - All Services */}
         <div className="space-y-20">
-          {servicesData.slice(0, 2).map((service, index) => {
+          {servicesData.map((service, index) => {
             const isEven = index % 2 === 0;
             
             return (
@@ -63,20 +63,21 @@ export default function OurServices() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: false, margin: '-100px' }}
                 transition={{ duration: 0.8 }}
-                className={`flex flex-col ${isEven ? 'lg:flex-row' : 'lg:flex-row-reverse'} gap-12 items-center`}
+                className="grid gap-12 items-start"
               >
                 {/* Image Side */}
-                <div className="w-full lg:w-1/2">
+                <div className={`${isEven ? 'order-1 lg:order-1' : 'order-2 lg:order-1'} w-full lg:w-[48%] min-h-[400px] flex-shrink-0`}>
                   <div className="relative group">
                     <div className="absolute -inset-4 bg-gradient-to-r from-rose-500/10 to-crimson-500/10 rounded-3xl blur-2xl opacity-60 group-hover:opacity-100 transition-opacity" />
-                    <div className="relative h-[400px] rounded-3xl overflow-hidden border border-white/10 shadow-2xl group-hover:shadow-crimson-intense transition-all duration-500">
-                      <motion.div
-                        whileHover={{ scale: 1.03 }}
-                        className="absolute inset-0"
+                    <div className="relative w-full h-full rounded-3xl overflow-hidden border border-white/10 shadow-2xl group-hover:shadow-crimson-intense transition-all duration-500">
+                      <img
+                        src={service.image}
+                        alt={service.title}
+                        className="w-full h-full object-cover rounded-3xl"
                         style={{
-                          backgroundImage: `url('${service.image}')`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
+                          borderRadius: isEven 
+                            ? '2rem 2rem 2rem 0rem' 
+                            : '2rem 2rem 0rem 2rem'
                         }}
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/40" />
@@ -106,7 +107,7 @@ export default function OurServices() {
                 </div>
 
                 {/* Content Side */}
-                <div className="w-full lg:w-1/2">
+                <div className={`${isEven ? 'order-2 lg:order-2' : 'order-1 lg:order-2'} w-full lg:w-[48%] space-y-6 p-8 lg:p-10`}>
                   <div className="mb-4">
                     <span className="inline-block px-4 py-2 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 text-sm font-semibold uppercase tracking-wider">
                       Service {service.id}
@@ -121,7 +122,7 @@ export default function OurServices() {
                     {service.description}
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                     {service.benefits.slice(0, 4).map((benefit, i) => (
                       <div key={i} className="flex items-start gap-3 p-2">
                         <CheckCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
