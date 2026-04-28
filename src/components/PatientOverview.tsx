@@ -19,6 +19,7 @@ interface PatientOverviewProps {
 
 export default function PatientOverview({ user, patient, onUpgradeClick, isMember, isPendingApproval }: PatientOverviewProps) {
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showExercisesModal, setShowExercisesModal] = useState(false);
   const [assignedExercises, setAssignedExercises] = useState<any[]>([]);
   const [assignedTherapistName, setAssignedTherapistName] = useState<string | null>(null);
 
@@ -118,7 +119,7 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
         {[  
           { label: 'Completed Sessions', value: completedSessions, icon: <CheckCircle className="w-6 h-6" />, color: 'red' },
           { label: 'Remaining Sessions', value: remainingSessions, icon: <Calendar className="w-6 h-6" />, color: 'blue' },
-           { label: 'Exercises Assigned', value: (patient?.prescribedExercises?.length || 0), icon: <Activity className="w-6 h-6" />, color: 'red' },
+           { label: 'Exercises Assigned', value: assignedExercises.length, icon: <Activity className="w-6 h-6" />, color: 'red', clickable: true },
           { 
             label: 'Total Progress', 
             value: `${Math.round(progress)}%`, 
@@ -130,9 +131,19 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
           <motion.div
             key={stat.label}
             variants={slideUpVariant}
-            whileHover={{ scale: 1.02, y: -4 }}
-            whileTap={{ scale: 0.98 }}
-            className="premium-glass p-5 cursor-pointer"
+             whileHover={{ scale: assignedExercises.length > 0 ? 1.02 : 1, y: assignedExercises.length > 0 ? -4 : 0 }}
+             whileTap={{ scale: assignedExercises.length > 0 ? 0.98 : 1 }}
+             onClick={() => {
+               if (assignedExercises.length > 0) {
+                 setShowExercisesModal(true);
+               } else {
+                 const planSection = document.getElementById('treatment-plan');
+                 if (planSection) {
+                   planSection.scrollIntoView({ behavior: 'smooth' });
+                 }
+               }
+             }}
+             className={`premium-glass p-5 cursor-pointer ${assignedExercises.length > 0 ? 'hover:border-red-500/50 hover:shadow-red-500/10' : ''}`}
           >
             <div className={`w-12 h-12 rounded-xl ${stat.color === 'red' ? 'red-gradient' : 'blue-gradient'} flex items-center justify-center text-white mb-4 shadow-lg`}>
               {stat.icon}
@@ -363,7 +374,107 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+        </AnimatePresence>
+
+        {/* Exercises Modal */}
+        <AnimatePresence>
+          {showExercisesModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            >
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.5, opacity: 0 }}
+                className="glass-card p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-white">My Exercises</h2>
+                  <button
+                    onClick={() => setShowExercisesModal(false)}
+                    className="p-2 hover:bg-white/10 hover:scale-[1.02] hover:shadow-crimson-glow rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5 text-slate-400" />
+                  </button>
+                </div>
+
+                {assignedExercises.length > 0 ? (
+                  <div className="space-y-4">
+                    {assignedExercises.map((exercise, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        className="p-4 bg-white/5 rounded-xl border border-white/5"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-rose-500 to-crimson-700 flex items-center justify-center text-white font-bold text-sm">
+                              {index + 1}
+                            </div>
+                            <h3 className="text-lg font-semibold text-white">
+                              {exercise.name || exercise.title || 'Exercise'}
+                            </h3>
+                          </div>
+                        </div>
+                        
+                        <p className="text-slate-400 text-sm mb-4 pl-10">
+                          {exercise.description || exercise.instructions || 'No description'}
+                        </p>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pl-10">
+                          {exercise.sets && (
+                            <div className="text-center">
+                              <p className="text-slate-400 text-xs">Sets</p>
+                              <p className="text-primary font-bold text-sm">{exercise.sets}</p>
+                            </div>
+                          )}
+                          {exercise.reps && (
+                            <div className="text-center">
+                              <p className="text-slate-400 text-xs">Reps</p>
+                              <p className="text-primary font-bold text-sm">{exercise.reps}</p>
+                            </div>
+                          )}
+                          {exercise.frequency && (
+                            <div className="text-center">
+                              <p className="text-slate-400 text-xs">Frequency</p>
+                              <p className="text-sky font-bold text-sm">{exercise.frequency}</p>
+                            </div>
+                          )}
+                          {exercise.duration && (
+                            <div className="text-center">
+                              <p className="text-slate-400 text-xs">Duration</p>
+                              <p className="text-sky font-bold text-sm">{exercise.duration} min</p>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-slate-400 text-sm">No exercises assigned yet</p>
+                    <p className="text-slate-500 text-xs mt-2">Contact your therapist to get started</p>
+                  </div>
+                )}
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowExercisesModal(false)}
+                  className="w-full mt-6 py-3 rounded-xl premium-gradient text-white font-semibold hover:shadow-crimson-intense transition-all"
+                >
+                  Close
+                </motion.button>
+              </motion.div>
+            </motion.div>
+           )}
+        </AnimatePresence>
     </motion.div>
   );
 }
+

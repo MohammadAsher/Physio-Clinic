@@ -82,18 +82,18 @@ export default function OurServices() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/40" />
 
-                      {/* Icon Image Badge */}
-                      {service.iconImage && (
-                        <div className="absolute top-6 right-6 z-10">
-                          <div className="w-20 h-20 rounded-2xl border-2 border-rose-400/60 overflow-hidden shadow-xl bg-slate-900">
-                            <img
-                              src={service.iconImage}
-                              alt={service.title}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        </div>
-                      )}
+                       {/* Icon Image Badge */}
+                       {service.iconImage && (
+                         <div className="absolute top-6 right-6 z-10">
+                           <div className="w-40 h-40 rounded-2xl border-2 border-rose-400/60 overflow-hidden shadow-xl">
+                             <img
+                               src={service.iconImage}
+                               alt={service.title}
+                               className="w-full h-full object-cover rounded-xl"
+                             />
+                           </div>
+                         </div>
+                       )}
 
                       {/* Price Badge */}
                       <div className="absolute bottom-6 left-6 z-10">
