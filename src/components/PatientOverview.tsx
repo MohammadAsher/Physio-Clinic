@@ -22,6 +22,7 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
   const [showExercisesModal, setShowExercisesModal] = useState(false);
   const [assignedExercises, setAssignedExercises] = useState<any[]>([]);
   const [assignedTherapistName, setAssignedTherapistName] = useState<string | null>(null);
+  const [showTreatmentPlan, setShowTreatmentPlan] = useState(false);
 
    const [userData, setUserData] = useState<any>(null);
 
@@ -115,36 +116,31 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
         )}
       </motion.div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[  
-          { label: 'Completed Sessions', value: completedSessions, icon: <CheckCircle className="w-6 h-6" />, color: 'red' },
-          { label: 'Remaining Sessions', value: remainingSessions, icon: <Calendar className="w-6 h-6" />, color: 'blue' },
-           { label: 'Exercises Assigned', value: assignedExercises.length, icon: <Activity className="w-6 h-6" />, color: 'red', clickable: true },
-          { 
-            label: 'Total Progress', 
-            value: `${Math.round(progress)}%`, 
-            icon: <Clock className="w-6 h-6" />, 
-            color: 'blue',
-            isPercentage: true 
-          },
-        ].map((stat, index) => (
-          <motion.div
-            key={stat.label}
-            variants={slideUpVariant}
-             whileHover={{ scale: assignedExercises.length > 0 ? 1.02 : 1, y: assignedExercises.length > 0 ? -4 : 0 }}
-             whileTap={{ scale: assignedExercises.length > 0 ? 0.98 : 1 }}
-             onClick={() => {
-               if (assignedExercises.length > 0) {
-                 setShowExercisesModal(true);
-               } else {
-                 const planSection = document.getElementById('treatment-plan');
-                 if (planSection) {
-                   planSection.scrollIntoView({ behavior: 'smooth' });
-                 }
-               }
-             }}
-             className={`premium-glass p-5 cursor-pointer ${assignedExercises.length > 0 ? 'hover:border-red-500/50 hover:shadow-red-500/10' : ''}`}
-          >
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+         {[  
+           { label: 'Completed Sessions', value: completedSessions, icon: <CheckCircle className="w-6 h-6" />, color: 'red' },
+           { label: 'Remaining Sessions', value: remainingSessions, icon: <Calendar className="w-6 h-6" />, color: 'blue' },
+            { label: 'Exercises Assigned', value: assignedExercises.length, icon: <Activity className="w-6 h-6" />, color: 'red', clickable: true },
+           { 
+             label: 'Total Progress', 
+             value: `${Math.round(progress)}%`, 
+             icon: <Clock className="w-6 h-6" />, 
+             color: 'blue',
+             isPercentage: true 
+           },
+         ].map((stat, index) => (
+           <motion.div
+             key={stat.label}
+             variants={slideUpVariant}
+              whileHover={{ scale: stat.label === 'Exercises Assigned' && assignedExercises.length > 0 ? 1.02 : 1, y: stat.label === 'Exercises Assigned' && assignedExercises.length > 0 ? -4 : 0 }}
+              whileTap={{ scale: stat.label === 'Exercises Assigned' && assignedExercises.length > 0 ? 0.98 : 1 }}
+              onClick={() => {
+                if (stat.label === 'Exercises Assigned' && assignedExercises.length > 0) {
+                  setShowTreatmentPlan(true);
+                }
+              }}
+              className={`premium-glass p-5 ${stat.label === 'Exercises Assigned' && assignedExercises.length > 0 ? 'cursor-pointer hover:border-red-500/50 hover:shadow-red-500/10' : 'pointer-events-none opacity-50'}`}
+           >
             <div className={`w-12 h-12 rounded-xl ${stat.color === 'red' ? 'red-gradient' : 'blue-gradient'} flex items-center justify-center text-white mb-4 shadow-lg`}>
               {stat.icon}
             </div>
@@ -160,74 +156,80 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
         ))}
       </div>
 
-       {/* My Treatment Plan Section */}
-       {assignedExercises.length > 0 && assignedTherapistName && (
-         <motion.div
-           variants={slideUpVariant}
-           className="premium-glass p-6"
-         >
-           <div className="flex items-center gap-3 mb-6">
-             <Activity className="w-6 h-6 text-sky" />
-             <h2 className="text-xl font-semibold text-white">My Treatment Plan</h2>
-           </div>
-           
-           <div className="flex items-center gap-2 mb-4 p-3 bg-sky-500/10 rounded-lg">
-             <span className="text-slate-400">Assigned Therapist:</span>
-             <span className="text-sky-400 font-semibold">{assignedTherapistName}</span>
-           </div>
- 
-           <div className="space-y-3">
-             {assignedExercises.map((exercise, index) => (
-               <motion.div
-                 key={index}
-                 variants={slideUpVariant}
-                 className="p-4 bg-white/5 rounded-xl border border-white/5"
-               >
-                 <div className="flex items-start justify-between">
-                   <div className="flex-1">
-                     <h4 className="text-white font-semibold flex items-center gap-2">
-                       <span className="w-6 h-6 rounded-full bg-sky-500/20 flex items-center justify-center text-xs text-sky-400">
-                         {index + 1}
-                       </span>
-                       {exercise.name || exercise.title || 'Exercise'}
-                     </h4>
-                     <p className="text-slate-400 text-sm mt-1">
-                       {exercise.description || exercise.instructions || 'No description'}
-                     </p>
-                   </div>
-                 </div>
- 
-                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-700">
-                   {exercise.duration && (
-                     <div className="text-center">
-                       <p className="text-slate-400 text-xs">Duration</p>
-                       <p className="text-white font-semibold text-sm">{exercise.duration} mins</p>
-                     </div>
-                   )}
-                   {exercise.sets && (
-                     <div className="text-center">
-                       <p className="text-slate-400 text-xs">Sets</p>
-                       <p className="text-white font-semibold text-sm">{exercise.sets}</p>
-                     </div>
-                   )}
-                   {exercise.reps && (
-                     <div className="text-center">
-                       <p className="text-slate-400 text-xs">Reps</p>
-                       <p className="text-white font-semibold text-sm">{exercise.reps}</p>
-                     </div>
-                   )}
-                   {exercise.frequency && (
-                     <div className="text-center">
-                       <p className="text-slate-400 text-xs">Frequency</p>
-                       <p className="text-white font-semibold text-sm">{exercise.frequency}</p>
-                     </div>
-                   )}
-                 </div>
-               </motion.div>
-             ))}
-           </div>
-         </motion.div>
-       )}
+        {/* My Treatment Plan Section - Only show when Exercises Assigned card is clicked */}
+        {showTreatmentPlan && assignedExercises.length > 0 && assignedTherapistName && (
+          <motion.div
+            variants={slideUpVariant}
+            className="premium-glass p-6"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <Activity className="w-6 h-6 text-sky" />
+              <h2 className="text-xl font-semibold text-white">My Treatment Plan</h2>
+              <button
+                onClick={() => setShowTreatmentPlan(false)}
+                className="p-2 hover:bg-white/10 hover:scale-[1.02] hover:shadow-crimson-glow rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            </div>
+            
+            <div className="flex items-center gap-2 mb-4 p-3 bg-sky-500/10 rounded-lg">
+              <span className="text-slate-400">Assigned Therapist:</span>
+              <span className="text-sky-400 font-semibold">{assignedTherapistName}</span>
+            </div>
+  
+            <div className="space-y-3">
+              {assignedExercises.map((exercise, index) => (
+                <motion.div
+                  key={index}
+                  variants={slideUpVariant}
+                  className="p-4 bg-white/5 rounded-xl border border-white/5"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="text-white font-semibold flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-sky-500/20 flex items-center justify-center text-xs text-sky-400">
+                          {index + 1}
+                        </span>
+                        {exercise.name || exercise.title || 'Exercise'}
+                      </h4>
+                      <p className="text-slate-400 text-sm mt-1">
+                        {exercise.description || exercise.instructions || 'No description'}
+                      </p>
+                    </div>
+                  </div>
+  
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-700">
+                    {exercise.duration && (
+                      <div className="text-center">
+                        <p className="text-slate-400 text-xs">Duration</p>
+                        <p className="text-white font-semibold text-sm">{exercise.duration} mins</p>
+                      </div>
+                    )}
+                    {exercise.sets && (
+                      <div className="text-center">
+                        <p className="text-slate-400 text-xs">Sets</p>
+                        <p className="text-white font-semibold text-sm">{exercise.sets}</p>
+                      </div>
+                    )}
+                    {exercise.reps && (
+                      <div className="text-center">
+                        <p className="text-slate-400 text-xs">Reps</p>
+                        <p className="text-white font-semibold text-sm">{exercise.reps}</p>
+                      </div>
+                    )}
+                    {exercise.frequency && (
+                      <div className="text-center">
+                        <p className="text-slate-400 text-xs">Frequency</p>
+                        <p className="text-white font-semibold text-sm">{exercise.frequency}</p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <motion.div

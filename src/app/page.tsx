@@ -13,6 +13,7 @@ import LoginPage from '@/components/LoginPage';
 import PatientDashboard from '@/components/PatientDashboard';
 import DoctorDashboardNew from '@/components/DoctorDashboardNew';
 import AdminDashboard from '@/components/AdminDashboard';
+import TherapistDashboard from '@/components/TherapistDashboard';
 
 type AuthView = 'landing' | 'login' | 'signup';
 
@@ -360,25 +361,30 @@ return (
             />
           )}
         </motion.div>
-      ) : currentUser.role === 'admin' ? (
-          <AdminDashboard
-            users={users}
-            onAssignRole={handleAssignRole}
-            onLogout={handleLogout}
-          />
-         ) : currentUser.role === 'patient' ? (
-           <PatientDashboard
-             user={currentUser}
+       ) : currentUser.role === 'admin' ? (
+           <AdminDashboard
+             users={users}
+             onAssignRole={handleAssignRole}
              onLogout={handleLogout}
            />
-           ) : (
-             <DoctorDashboardNew
-               user={currentUser}
-               patients={patients as any}
-               onUpdatePatient={handleUpdatePatient}
-               onLogout={handleLogout}
-             />
-        )}
+          ) : currentUser.role === 'therapist' ? (
+            <TherapistDashboard
+              user={currentUser}
+              onLogout={handleLogout}
+            />
+          ) : currentUser.role === 'patient' ? (
+            <PatientDashboard
+              user={currentUser}
+              onLogout={handleLogout}
+            />
+            ) : (
+              <DoctorDashboardNew
+                user={currentUser}
+                patients={patients as any}
+                onUpdatePatient={handleUpdatePatient}
+                onLogout={handleLogout}
+              />
+         )}
     </AnimatePresence>
   );
 }

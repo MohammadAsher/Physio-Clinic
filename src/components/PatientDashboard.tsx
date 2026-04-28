@@ -98,24 +98,45 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
 
   const planBadge = getPlanBadge(user?.totalFees);
 
-  // Computed variables for UI state
-  const isAssigned = user?.status === 'assigned' && user?.assignedDoctorName;
-  const isMember = user?.isMember && user?.membershipStatus === 'active';
-  const isPendingApproval = user?.membershipStatus === 'pendingApproval';
-  const isProfileComplete = user?.profileCompleted && user?.patientProfile?.age;
+   const [freshUserData, setFreshUserData] = useState<User | null>(null);
+   
+    // Computed variables for UI state
+    const isAssigned = !!freshUserData?.assignedTherapistName;
+    const isMember = freshUserData?.isMember && freshUserData?.membershipStatus === 'active';
+    const isPendingApproval = freshUserData?.membershipStatus === 'pendingApproval';
+    const isProfileComplete = freshUserData?.profileCompleted && freshUserData?.patientProfile?.age;
 
-    useEffect(() => {
+   useEffect(() => {
      if (user?.id) {
        setReports(user?.reports || []);
        const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
          if (docSnap.exists()) {
-           const data = docSnap.data();
+           const data = docSnap.data() as User;
            setReports(data?.reports || []);
+           setFreshUserData(data); // Update fresh user data from Firestore
+           
+           // Also update local state fields for immediate use
+           setProfileImage(data?.patientProfile?.profilePicture || data?.avatar || '');
+           setProfileData({
+             age: data?.patientProfile?.age || '',
+             gender: data?.patientProfile?.gender || '',
+             medicalHistory: data?.patientProfile?.medicalHistory || '',
+           });
          }
        });
        return () => unsubscribe();
      }
    }, [user?.id]);
+   
+   // Keep local state in sync with incoming user prop (for initial load)
+   useEffect(() => {
+     setProfileImage(user?.patientProfile?.profilePicture || user?.avatar || '');
+     setProfileData({
+       age: user?.patientProfile?.age || '',
+       gender: user?.patientProfile?.gender || '',
+       medicalHistory: user?.patientProfile?.medicalHistory || '',
+     });
+   }, [user]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -470,41 +491,41 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
         </div>
       </header>
 
-      {/* Main Content - Centered */}
-      <div className="w-full max-w-6xl mx-auto px-4 py-8">
-        {isAssigned ? (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-4 mb-6 glass-card p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20"
-          >
-            <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center border-2 border-rose-400/60">
-                  <UserCheck className="w-5 h-5 text-white" />
-                </div>
-              <div>
-                <p className="text-slate-400 text-xs uppercase tracking-wider font-bold">Assigned Specialist</p>
-                <p className="text-white font-semibold text-lg">{user.assignedDoctorName}</p>
-              </div>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-4 mb-6 glass-card p-4 bg-amber-500/5 border border-amber-500/20"
-          >
-            <div className="flex items-center gap-3">
-               <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center border-2 border-rose-400/60">
-                <UserCheck className="w-5 h-5 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-amber-500 font-semibold uppercase text-xs tracking-widest">Status: Queue</p>
-                <p className="text-slate-400 text-sm">Assigning a physiotherapist shortly...</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
+       {/* Main Content - Centered */}
+       <div className="w-full max-w-6xl mx-auto px-4 py-8">
+         {isAssigned ? (
+           <motion.div
+             initial={{ opacity: 0, y: -10 }}
+             animate={{ opacity: 1, y: 0 }}
+             className="mt-4 mb-6 glass-card p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20"
+           >
+             <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center border-2 border-rose-400/60">
+                   <UserCheck className="w-5 h-5 text-white" />
+                 </div>
+               <div>
+                 <p className="text-slate-400 text-xs uppercase tracking-wider font-bold">Status: Assigned</p>
+                 <p className="text-white font-semibold text-lg">{freshUserData?.assignedTherapistName}</p>
+               </div>
+             </div>
+           </motion.div>
+         ) : (
+           <motion.div
+             initial={{ opacity: 0, y: -10 }}
+             animate={{ opacity: 1, y: 0 }}
+             className="mt-4 mb-6 glass-card p-4 bg-amber-500/5 border border-amber-500/20"
+           >
+             <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center border-2 border-rose-400/60">
+                 <UserCheck className="w-5 h-5 text-amber-500" />
+               </div>
+               <div>
+                 <p className="text-amber-500 font-semibold uppercase text-xs tracking-widest">Status: Queue</p>
+                 <p className="text-slate-400 text-sm">Assigning a physiotherapist shortly...</p>
+               </div>
+             </div>
+           </motion.div>
+         )}
 
         {/* Role-Based Quotes Section */}
         <section className="py-10 px-4">

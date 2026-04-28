@@ -19,7 +19,7 @@ interface PatientWithExercises extends Patient {
   assignedTherapistName: string;
   completedSessions?: number;
   totalSessions?: number;
-  prescribedExercises?: any[];
+  assignedExercises?: any[];
 }
 
 export default function TherapistDashboard({ user, onLogout }: TherapistDashboardProps) {
@@ -60,10 +60,11 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
           assignedDoctorName: data.assignedDoctorName,
           assignedTherapistId: data.assignedTherapistId,
           assignedTherapistName: data.assignedTherapistName,
-          prescribedExercises: data.prescribedExercises || [],
+          assignedExercises: data.assignedExercises || data.prescribedExercises || [],
           lastUpdated: data.lastUpdated?.toDate() || null,
           totalSessions: data.totalSessions || 0,
           completedSessions: data.completedSessions || 0,
+          remainingSessions: data.remainingSessions || 0,
         };
       });
       setPatients(fetchedPatients);
@@ -116,7 +117,7 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
         })
       });
 
-      showToast('Session recorded successfully!');
+      showToast('Session Marked as Completed');
       setConfirmPatient(null);
     } catch (err) {
       console.error('Error completing session:', err);
@@ -127,7 +128,7 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
   };
 
   const hasExercises = (patient: PatientWithExercises) => {
-    return patient.prescribedExercises && patient.prescribedExercises.length > 0;
+    return patient.assignedExercises && patient.assignedExercises.length > 0;
   };
 
   const getRemainingSessions = (patient: PatientWithExercises) => {
@@ -351,9 +352,9 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
 
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-3">
-                            {patient.prescribedExercises && patient.prescribedExercises.length > 0 ? (
+                            {patient.assignedExercises && patient.assignedExercises.length > 0 ? (
                               <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
-                                {patient.prescribedExercises.length} Exercises
+                                {patient.assignedExercises.length} Exercises
                               </span>
                             ) : (
                               <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-400">
@@ -510,15 +511,15 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
                       Prescribed Exercises
                     </h3>
 
-                    {(!selectedPatient.prescribedExercises || selectedPatient.prescribedExercises.length === 0) ? (
-                      <div className="text-center py-8">
-                        <FileText className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-                        <p className="text-slate-400">No exercise plan prescribed yet</p>
-                        <p className="text-slate-500 text-sm mt-1">The doctor needs to assign exercises first</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {selectedPatient.prescribedExercises.map((exercise, index) => (
+                     {(!selectedPatient.assignedExercises || selectedPatient.assignedExercises.length === 0) ? (
+                       <div className="text-center py-8">
+                         <FileText className="w-12 h-12 mx-auto mb-4 text-slate-600" />
+                         <p className="text-slate-400">No exercise plan prescribed yet</p>
+                         <p className="text-slate-500 text-sm mt-1">The doctor needs to assign exercises first</p>
+                       </div>
+                     ) : (
+                       <div className="space-y-3">
+                         {selectedPatient.assignedExercises.map((exercise: any, index: number) => (
                           <motion.div
                             key={index}
                             initial={{ opacity: 0, x: -20 }}
