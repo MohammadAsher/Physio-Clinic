@@ -4,7 +4,6 @@ import { useRef, useState } from 'react';
 import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion';
 import { Heart, Dumbbell, ArrowRight, CheckCircle, Clock, Calendar, X, UserCircle, Award, CalendarCheck, Sparkles } from 'lucide-react';
 import Logo from './Logo';
-import OurServices from './OurServices';
 import PremiumImageCarousel from './PremiumImageCarousel';
 import RoleBasedQuotes from './RoleBasedQuotes';
 import { servicesData, heroCarouselImages } from '@/lib/servicesData';
@@ -362,41 +361,22 @@ function ServicesSection() {
                 viewport={{ once: false, margin: '-100px' }}
                 transition={{ duration: 0.8, delay: index * 0.1 }}
               >
-                {/* Service Card with generous padding */}
-                <div className="glass-card p-8 md:p-12 hover:shadow-crimson-intense transition-all duration-500 group">
-                  <div className={`flex flex-col ${isEven ? 'lg:flex-row' : 'lg:flex-row-reverse'} gap-12 items-center`}>
+                {/* Service Card - Clean 50/50 Box Layout */}
+                <div className="rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-slate-900/50">
+                  <div className={`flex flex-col ${isEven ? 'lg:flex-row' : 'lg:flex-row-reverse'}`}>
                     
-                    {/* Image Side */}
-                    <div className="w-full lg:w-1/2">
-                      <div className="relative h-[400px] rounded-2xl overflow-hidden border border-white/10 shadow-xl">
-                        <motion.div
-                          whileHover={{ scale: 1.03 }}
-                          className="absolute inset-0"
-                          style={{
-                            backgroundImage: `url('${service.image}')`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/40" />
-
-                        {/* Service Icon Badge - Top Right */}
-                        {service.iconImage && (
-                          <div className="absolute top-4 right-4 z-10">
-                            <div className="w-16 h-16 rounded-xl border-2 border-rose-400/60 overflow-hidden shadow-lg bg-slate-900">
-                              <img
-                                src={service.iconImage}
-                                alt={service.title}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                    {/* Image Column - Filled 100% with real local image */}
+                    <div className="w-full lg:w-1/2 relative h-[300px] lg:h-[400px] overflow-hidden bg-slate-900">
+                      <img
+                        src={service.image}
+                        alt={service.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                     </div>
 
-                    {/* Content Side */}
-                    <div className="w-full lg:w-1/2 flex flex-col justify-center">
+                    {/* Text Column */}
+                    <div className="w-full lg:w-1/2 p-8 md:p-12 flex flex-col justify-center">
                       <div className="mb-4">
                         <span className="inline-block px-4 py-2 rounded-full bg-rose-500/20 border border-rose-500/30 text-rose-300 text-sm font-semibold uppercase tracking-wider">
                           Service {service.id}
@@ -411,7 +391,7 @@ function ServicesSection() {
                         {service.description}
                       </p>
 
-                      {/* Pricing Badge - Placed under description */}
+                      {/* Pricing Badge */}
                       <div className="mb-6">
                         <div className="inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-gradient-to-r from-rose-600/90 to-crimson-700/90 backdrop-blur-md border border-white/20 shadow-lg">
                           <div>
@@ -557,12 +537,9 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
     <div className="min-h-screen bg-slate-950">
       <HeroSection onLogin={onLogin} onSignup={onSignup} doctors={displayedDoctors} />
 
-      <ServicesSection />
-      
-      
-      <OurServices />
-      
-      <WhyChooseUsSection />
+       <ServicesSection />
+       
+       <WhyChooseUsSection />
       
       {/* Quotes Section */}
       <Section className="py-20 px-4 bg-slate-900/30">
