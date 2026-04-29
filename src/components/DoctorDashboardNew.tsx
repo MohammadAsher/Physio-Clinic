@@ -123,7 +123,7 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
       if (docSnap.exists()) {
         const data = docSnap.data();
         const isComplete = !!(data?.profileCompleted && data?.doctorProfile?.education && data?.doctorProfile?.specialization);
-        setSelectedPatient(prev => prev ? { ...prev, profileCompleted: isComplete } : null);
+         setSelectedPatient((prev: any) => prev ? { ...prev, profileCompleted: isComplete } : null);
       }
     });
     return () => unsubscribe();

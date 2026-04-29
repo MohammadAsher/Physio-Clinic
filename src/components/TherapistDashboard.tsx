@@ -20,6 +20,7 @@ interface PatientWithExercises extends Patient {
   completedSessions?: number;
   totalSessions?: number;
   assignedExercises?: any[];
+  prescription?: string;
 }
 
 export default function TherapistDashboard({ user, onLogout }: TherapistDashboardProps) {
@@ -41,32 +42,33 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
     );
 
     const unsubscribe = onSnapshot(patientsQuery, (snapshot) => {
-      const fetchedPatients: PatientWithExercises[] = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          userId: doc.id,
-          name: data.name || '',
-          phone: data.phone || '',
-          email: data.email || '',
-          age: data.age,
-          gender: data.gender,
-          status: data.status || 'waiting',
-          checkInTime: data.checkInTime || null,
-          token: data.token || null,
-          isMember: data.isMember || false,
-          membershipStatus: data.membershipStatus || '',
-          assignedDoctorId: data.assignedDoctorId,
-          assignedDoctorName: data.assignedDoctorName,
-          assignedTherapistId: data.assignedTherapistId,
-          assignedTherapistName: data.assignedTherapistName,
-          assignedExercises: data.assignedExercises || data.prescribedExercises || [],
-          lastUpdated: data.lastUpdated?.toDate() || null,
-          totalSessions: data.totalSessions || 0,
-          completedSessions: data.completedSessions || 0,
-          remainingSessions: data.remainingSessions || 0,
-        };
-      });
+       const fetchedPatients: PatientWithExercises[] = snapshot.docs.map(doc => {
+         const data = doc.data();
+         return {
+           id: doc.id,
+           userId: doc.id,
+           name: data.name || '',
+           phone: data.phone || '',
+           email: data.email || '',
+           age: data.age,
+           gender: data.gender,
+           status: data.status || 'waiting',
+           checkInTime: data.checkInTime || null,
+           token: data.token || null,
+           isMember: data.isMember || false,
+           membershipStatus: data.membershipStatus || '',
+           assignedDoctorId: data.assignedDoctorId,
+           assignedDoctorName: data.assignedDoctorName,
+           assignedTherapistId: data.assignedTherapistId,
+           assignedTherapistName: data.assignedTherapistName,
+           assignedExercises: data.assignedExercises || data.prescribedExercises || [],
+           prescription: data.prescription || '',
+           lastUpdated: data.lastUpdated?.toDate() || null,
+           totalSessions: data.totalSessions || 0,
+           completedSessions: data.completedSessions || 0,
+           remainingSessions: data.remainingSessions || 0,
+         };
+       });
       setPatients(fetchedPatients);
       setIsLoading(false);
     });
@@ -573,23 +575,23 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
                     )}
                   </div>
 
-                  {/* Clinical Notes / Prescription */}
-                  <div className="mt-6 pt-6 border-t border-slate-700">
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-sky-400" />
-                      Clinical Notes / Prescription
-                    </h3>
-                    {selectedPatient.prescription ? (
-                      <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                        <p className="text-slate-300 whitespace-pre-wrap">{selectedPatient.prescription}</p>
-                      </div>
-                    ) : (
-                      <div className="text-center py-8">
-                        <FileText className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-                        <p className="text-slate-400">No clinical notes provided.</p>
-                      </div>
-                    )}
-                  </div>
+                   {/* Doctor's Prescription */}
+                   <div className="mt-6 pt-6 border-t border-slate-700">
+                     <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                       <FileText className="w-5 h-5 text-emerald-400" />
+                       Doctor's Prescription
+                     </h3>
+                     {selectedPatient.prescription ? (
+                       <div className="bg-emerald-500/5 rounded-xl p-4 border border-emerald-500/20">
+                         <p className="text-emerald-100 whitespace-pre-wrap">{selectedPatient.prescription}</p>
+                       </div>
+                     ) : (
+                       <div className="text-center py-8">
+                         <FileText className="w-12 h-12 mx-auto mb-4 text-slate-600" />
+                         <p className="text-slate-400">No prescription available yet.</p>
+                       </div>
+                     )}
+                   </div>
                 </div>
               </motion.div>
             </motion.div>

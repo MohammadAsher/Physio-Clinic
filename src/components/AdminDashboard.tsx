@@ -32,12 +32,12 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
   useEffect(() => {
     const requestsRef = collection(db, 'membershipRequests');
     const unsubscribe = onSnapshot(requestsRef, (snapshot) => {
-      const requests = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        requestDate: doc.data().requestDate?.toDate() || doc.data().requestDate || new Date()
-      }));
-      setMembershipRequests(requests.filter(r => r.status === 'pending'));
+     const requests = snapshot.docs.map(doc => ({
+       id: doc.id,
+       ...doc.data(),
+       requestDate: doc.data().requestDate?.toDate() || doc.data().requestDate || new Date()
+     } as any));
+     setMembershipRequests(requests.filter(r => r.status === 'pending'));
     });
     return () => unsubscribe();
   }, []);
@@ -86,32 +86,38 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
     }
   };
 
-   const handleApproveMembership = async (requestId: string, userId: string, totalSessions: number) => {
-      if (!totalSessions || totalSessions <= 0) return;
-      const totalSessionsNum = Number(totalSessions);
-      try {
-        // Update the membership request status
-        await updateDoc(doc(db, 'membershipRequests', requestId), {
-          status: 'approved',
-          approvedAt: new Date(),
-          totalSessions: totalSessionsNum
-        });
+    const handleApproveMembership = async (requestId: string, userId: string, totalSessions: number) => {
+       if (!totalSessions || totalSessions <= 0) return;
+       const totalSessionsNum = Number(totalSessions);
+       const fees = Number(feeInputs[userId]) || 0;
+       try {
+         // Update the membership request status
+         await updateDoc(doc(db, 'membershipRequests', requestId), {
+           status: 'approved',
+           approvedAt: new Date(),
+           totalSessions: totalSessionsNum,
+           feesPaid: fees
+         });
+         
+         // Update the patient's user document
+         await updateDoc(doc(db, 'users', userId), {
+           isMember: true,
+           membershipStatus: 'active',
+           membershipType: 'custom',
+           totalSessions: totalSessionsNum,
+           totalFees: fees,
+           completedSessions: 0
+         });
+         
+         // Clear the fee input for this patient
+         setFeeInputs({ ...feeInputs, [userId]: '' });
         
-        // Update the patient's user document
-        await updateDoc(doc(db, 'users', userId), {
-          isMember: true,
-          membershipStatus: 'active',
-          membershipType: 'custom',
-          totalSessions: totalSessionsNum,
-          completedSessions: 0
-        });
-       
-       setShowConfetti(true);
-       setTimeout(() => setShowConfetti(false), 3000);
-     } catch (err) {
-       console.error('Error approving membership:', err);
-     }
-   };
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
+      } catch (err) {
+        console.error('Error approving membership:', err);
+      }
+    };
 
   const handleRejectMembership = async (requestId: string, userId: string) => {
     try {
@@ -137,6 +143,7 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
       case 'consulting': return 'bg-blue-500/20 text-blue-400';
       case 'completed': 
       case 'assigned': return 'bg-emerald-500/20 text-emerald-400';
+      case 'rejected': return 'bg-red-500/20 text-red-400';
       default: return 'bg-slate-500/20 text-slate-400';
     }
   };
@@ -331,82 +338,102 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
               <h2 className="text-xl font-semibold text-white">Membership Requests</h2>
             </div>
 
-            <div className="space-y-4">
-              {membershipRequests.map((request) => {
-                // Find the corresponding patient from users
-                const patient = users.find(u => u.id === request.patientId);
-                if (!patient) return null;
-                
-                return (
-                <div key={request.id} className="p-4 bg-white/5 rounded-xl">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                       <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center border-2 border-rose-400/60">
-                         <span className="text-purple-400 font-semibold">
-                           {patient.name.charAt(0).toUpperCase()}
+             <div className="space-y-4">
+               {membershipRequests.map((request) => {
+                 // Find the corresponding patient from users
+                 const patient = users.find(u => u.id === request.patientId);
+                 if (!patient) return null;
+                 
+                 return (
+                 <motion.div
+                   key={request.id}
+                   initial={{ opacity: 0, y: 20 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   className="p-4 glass-card border border-white/10 rounded-xl backdrop-blur-xl"
+                 >
+                   <div className="flex items-center gap-4 mb-4">
+                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-purple-500/30">
+                       {patient.name.charAt(0).toUpperCase()}
+                     </div>
+                     <div className="flex-1">
+                       <h3 className="text-white font-semibold text-lg">{patient.name}</h3>
+                       <p className="text-slate-400 text-sm">{patient.email || patient.phone}</p>
+                       <div className="flex items-center gap-2 mt-1">
+                         <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-400">
+                           Pending Approval
                          </span>
                        </div>
-                      <div>
-                        <p className="text-white font-medium">{patient.name}</p>
-                        <p className="text-slate-400 text-xs">
-                          Status: Pending Approval
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {request.transactionId && (
-                    <div className="mb-3 p-2 bg-amber-500/10 rounded-lg">
-                      <p className="text-amber-400 text-xs mb-1">Transaction ID</p>
-                      <p className="text-white font-mono text-sm">{request.transactionId}</p>
-                    </div>
-                  )}
-                  
-                   <div className="flex gap-2 flex-col sm:flex-row">
-                     <div className="flex-1">
-                       <label className="text-slate-400 text-xs mb-1 block">Total Sessions</label>
+                     </div>
+                   </div>
+                   
+                   {request.transactionId && (
+                     <div className="mb-4 p-3 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                       <p className="text-amber-400 text-xs mb-1">Transaction ID</p>
+                       <p className="text-white font-mono text-sm">{request.transactionId}</p>
+                     </div>
+                   )}
+                   
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                     <div>
+                       <label className="text-slate-400 text-xs mb-2 block">Fees Paid (PKR)</label>
                        <input
                          type="number"
-                         placeholder="e.g., 5, 10, 12"
+                         placeholder="e.g., 5000"
                          value={feeInputs[patient.id] || ''}
                          onChange={(e) => setFeeInputs({ ...feeInputs, [patient.id]: e.target.value })}
-                         className="glass-input w-full text-sm py-2"
+                         className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-sky-500 transition-colors"
                        />
                      </div>
+                     <div>
+                       <label className="text-slate-400 text-xs mb-2 block">Total Sessions</label>
+                       <input
+                         type="number"
+                         placeholder="e.g., 10"
+                         value={feeInputs[patient.id] || ''}
+                         onChange={(e) => setFeeInputs({ ...feeInputs, [patient.id]: e.target.value })}
+                         className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-sky-500 transition-colors"
+                       />
+                     </div>
+                   </div>
+                   
+                   <div className="flex gap-3">
                      <motion.button
-                       whileHover={{ scale: 1.05 }}
-                       whileTap={{ scale: 0.95 }}
+                       whileHover={{ scale: 1.02 }}
+                       whileTap={{ scale: 0.98 }}
                        onClick={() => {
                          const totalSessions = Number(feeInputs[patient.id]);
                          if (totalSessions > 0) {
                            handleApproveMembership(request.id, patient.id, totalSessions);
                          }
                        }}
-                        className="flex-1 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm hover:bg-emerald-500/30 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors flex items-center justify-center gap-2"
+                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-medium text-sm hover:shadow-[0_8px_24px_rgba(16,185,129,0.4)] transition-all"
                      >
                        <Check className="w-4 h-4" />
                        Approve
                      </motion.button>
                      <motion.button
-                       whileHover={{ scale: 1.05 }}
-                       whileTap={{ scale: 0.95 }}
+                       whileHover={{ scale: 1.02 }}
+                       whileTap={{ scale: 0.98 }}
                        onClick={() => handleRejectMembership(request.id, patient.id)}
-                        className="flex-1 px-3 py-2 rounded-lg bg-red-500/20 text-red-400 text-sm hover:bg-red-500/30 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors flex items-center justify-center gap-2"
+                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-red-500 to-rose-600 text-white font-medium text-sm hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-all"
                      >
                        <XCircle className="w-4 h-4" />
                        Reject
                      </motion.button>
                    </div>
-                </div>
-                )}
-              )}
-              {membershipRequests.length === 0 && (
-                <div className="text-center py-8 text-slate-500">
-                  <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No pending membership requests</p>
-                </div>
-              )}
-            </div>
+                 </motion.div>
+                 )}
+               )}
+               {membershipRequests.length === 0 && (
+                 <div className="text-center py-12">
+                   <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800/50 flex items-center justify-center">
+                     <FileText className="w-8 h-8 text-slate-600" />
+                   </div>
+                   <p className="text-slate-400 text-lg">No pending membership requests</p>
+                   <p className="text-slate-500 text-sm mt-1">All membership requests have been processed</p>
+                 </div>
+               )}
+             </div>
           </motion.div>
         </div>
 
@@ -421,54 +448,81 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
             <h2 className="text-xl font-semibold text-white">Assigned Patients - Status Control</h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {assignedPatients.map((patient) => (
-              <div key={patient.id} className="p-4 bg-white/5 rounded-xl">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                     <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center border-2 border-rose-400/60">
-                       <span className="text-white font-semibold">
-                         {patient.name.charAt(0).toUpperCase()}
+           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+             {assignedPatients.map((patient) => (
+               <div key={patient.id} className="p-4 glass-card border border-white/10 rounded-xl backdrop-blur-xl">
+                 <div className="flex items-center gap-4 mb-4">
+                   <div className="w-12 h-12 rounded-xl premium-gradient flex items-center justify-center border-2 border-rose-400/60">
+                     <span className="text-white font-bold text-lg">
+                       {patient.name.charAt(0).toUpperCase()}
+                     </span>
+                   </div>
+                   <div className="flex-1">
+                     <h3 className="text-white font-semibold text-lg">{patient.name}</h3>
+                     <p className="text-slate-400 text-sm">Dr. {patient.assignedDoctorName || 'Unassigned'}</p>
+                   </div>
+                 </div>
+                 
+                 {/* Membership Info */}
+                 {patient.isMember ? (
+                   <div className="mb-4 p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                     <div className="flex items-center justify-between mb-1">
+                       <span className="text-emerald-400 text-xs font-medium">MEMBER</span>
+                       <span className="text-emerald-400 text-xs">
+                         {patient.totalFees ? `PKR ${patient.totalFees.toLocaleString()}` : 'Premium'}
                        </span>
                      </div>
-                    <div>
-                      <p className="text-white font-medium">{patient.name}</p>
-                      <p className="text-slate-400 text-xs">Dr. {patient.assignedDoctorName}</p>
-                    </div>
-                  </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.status || 'waiting')}`}>
-                    {patient.status === 'assigned' ? 'Waiting' : patient.status || 'waiting'}
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleUpdateStatus(patient.id, 'waiting')}
-                    className="flex-1 px-3 py-2 rounded-lg bg-yellow-500/20 text-yellow-400 text-xs hover:bg-yellow-500/30 hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors"
-                  >
-                    Waiting
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus(patient.id, 'consulting')}
-                    className="flex-1 px-3 py-2 rounded-lg bg-blue-500/20 text-blue-400 text-xs hover:bg-blue-500/30 hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors"
-                  >
-                    In Consultation
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus(patient.id, 'completed')}
-                    className="flex-1 px-3 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs hover:bg-emerald-500/30 hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors"
-                  >
-                    Done
-                  </button>
-                </div>
-              </div>
-            ))}
-            {assignedPatients.length === 0 && (
-              <div className="col-span-full text-center py-8 text-slate-500">
-                <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                <p>No assigned patients yet</p>
-              </div>
-            )}
-          </div>
+                     <div className="flex items-center justify-between">
+                       <span className="text-slate-300 text-sm">Sessions: {patient.completedSessions || 0}/{patient.totalSessions || 0}</span>
+                       <span className="text-slate-400 text-xs">{patient.membershipType || 'Custom'}</span>
+                     </div>
+                   </div>
+                 ) : (
+                   <div className="mb-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                     <p className="text-slate-400 text-sm">Not a member</p>
+                   </div>
+                 )}
+                 
+                 {/* Status */}
+                 <div className="flex items-center gap-2 mb-4">
+                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(patient.status || 'waiting')}`}>
+                     {patient.status === 'assigned' ? 'Waiting' : patient.status || 'waiting'}
+                   </span>
+                 </div>
+                 
+                 {/* Action Buttons */}
+                 <div className="flex gap-2">
+                   <button
+                     onClick={() => handleUpdateStatus(patient.id, 'waiting')}
+                     className="flex-1 px-2 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 text-xs hover:bg-yellow-500/30 hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors"
+                   >
+                     Waiting
+                   </button>
+                   <button
+                     onClick={() => handleUpdateStatus(patient.id, 'consulting')}
+                     className="flex-1 px-2 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 text-xs hover:bg-blue-500/30 hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors"
+                   >
+                     In Session
+                   </button>
+                   <button
+                     onClick={() => handleUpdateStatus(patient.id, 'completed')}
+                     className="flex-1 px-2 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs hover:bg-emerald-500/30 hover:scale-[1.02] hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)] transition-colors"
+                   >
+                     Done
+                   </button>
+                 </div>
+               </div>
+             ))}
+             {assignedPatients.length === 0 && (
+               <div className="col-span-full text-center py-12">
+                 <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800/50 flex items-center justify-center">
+                   <Users className="w-8 h-8 text-slate-600" />
+                 </div>
+                 <p className="text-slate-400 text-lg">No assigned patients yet</p>
+                 <p className="text-slate-500 text-sm mt-1">Patients will appear here after assignment</p>
+               </div>
+             )}
+           </div>
         </motion.div>
 
         <motion.div
@@ -516,12 +570,12 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
                       <div className="relative">
                         <select
                           value={user.role}
-                          onChange={(e) => {
-                            const role = e.target.value;
-                            if (role !== 'patient') {
-                              onAssignRole(user.id, role);
-                            }
-                          }}
+                           onChange={(e) => {
+                             const role = e.target.value;
+                             if (role !== 'patient') {
+                               onAssignRole(user.id, role as 'doctor' | 'patient' | 'therapist');
+                             }
+                           }}
                           className="bg-slate-800/50 text-white px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
                         >
                           <option value="patient">Patient</option>

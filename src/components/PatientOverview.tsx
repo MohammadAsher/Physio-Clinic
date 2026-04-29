@@ -50,8 +50,13 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
 
   // Compute plan details
   const getPlanDetails = () => {
-    if (!isMember || !user.totalFees) {
+    if (!isMember) {
       return { planColor: 'from-gray-500 to-gray-600', planName: 'No Plan' };
+    }
+    // isMember is true
+    if (!user.totalFees) {
+      // Premium Member with gold gradient
+      return { planColor: 'from-amber-400 to-yellow-500', planName: 'Premium Member' };
     }
     const amount = user.totalFees;
     if (amount >= 3000 && amount <= 7000) return { planColor: 'from-slate-400 to-slate-500', planName: 'Silver' };
@@ -156,20 +161,41 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
           </div>
         </motion.div>
 
-        <motion.div variants={slideUpVariant} className="premium-glass p-6">
-          <h3 className="text-xl font-semibold text-white mb-4">Membership Status</h3>
+        <motion.div
+          variants={slideUpVariant}
+          initial="hidden"
+          animate="visible"
+          whileHover={{ scale: 1.02 }}
+           className="premium-glass backdrop-blur-xl p-6 rounded-2xl border border-white/10 shadow-[0_0_30px_rgba(255,255,255,0.05)] relative overflow-hidden transition-all duration-300 hover:shadow-[0_0_40px_rgba(255,255,255,0.1)]"
+        >
+          {/* Animated gradient background pulse */}
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-50 animate-pulse" />
+          <h3 className="text-xl font-semibold text-white mb-4 relative z-10">Membership Status</h3>
           {isMember ? (
-            <div className="space-y-3">
-              <div className="flex justify-between p-3 bg-white/5 rounded-xl">
-                <span className="text-slate-400">Plan</span>
-                <span className="text-gold font-medium flex items-center gap-2"><Crown className="w-4 h-4" /> {planName}</span>
+            <div className="space-y-4 relative z-10">
+              {/* Plan Badge - Floating Glass Pill */}
+              <div className="flex justify-center">
+                <div className={`px-6 py-2 rounded-full bg-gradient-to-r ${planName === 'Silver' ? 'from-slate-400 to-slate-500' : planName === 'Gold' ? 'from-amber-400 to-yellow-500' : planName === 'Diamond' ? 'from-blue-400 to-purple-500' : 'from-amber-400 to-yellow-500'} text-white font-bold shadow-lg flex items-center gap-2`}>
+                  <Crown className="w-4 h-4" />
+                  <span>{planName}</span>
+                </div>
               </div>
-              <div onClick={() => setShowQRModal(true)} className="p-4 bg-white rounded-xl flex justify-center cursor-pointer">
-                <QRCodeSVG value={user.id} size={120} />
+              
+              {/* QR Code with white container and glow */}
+              <div onClick={() => setShowQRModal(true)} className="flex justify-center cursor-pointer">
+                <div className="bg-white rounded-2xl p-3 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                  <QRCodeSVG value={user.id} size={120} />
+                </div>
+              </div>
+              
+              {/* Additional Info Row */}
+              <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl">
+                <span className="text-slate-400">Total Fees</span>
+                <span className="text-white font-medium">{user.totalFees ? `PKR ${user.totalFees.toLocaleString()}` : 'Premium Member'}</span>
               </div>
             </div>
           ) : (
-            <div className="text-center py-4">
+            <div className="text-center py-4 relative z-10">
               <p className="text-slate-400 mb-4">{isPendingApproval ? 'Approval Pending...' : 'Not a member yet'}</p>
               {!isPendingApproval && <button onClick={onUpgradeClick} className="glass-button blue">Upgrade Now</button>}
             </div>

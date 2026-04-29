@@ -274,9 +274,72 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                   </div>
                 )}
               </div>
-            </motion.div>
+             </motion.div>
 
-            {!isProfileComplete && (
+             {/* Membership Status Card */}
+             <motion.div variants={slideUpVariant} className="glass-card p-6 rounded-2xl">
+               {isPendingApproval && (
+                 // Pending State - Sexy animated card with pulse effect
+                 <motion.div 
+                   initial={{ opacity: 0, scale: 0.9 }}
+                   animate={{ opacity: 1, scale: 1 }}
+                   transition={{ 
+                     duration: 2,
+                     repeat: Infinity,
+                     repeatType: 'reverse'
+                   }}
+                   className="text-center py-8"
+                 >
+                   <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/30 animate-pulse">
+                     <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                   </div>
+                   <h3 className="text-2xl font-bold text-white mb-2">Processing Membership</h3>
+                   <p className="text-slate-400 mb-4">Our team is reviewing your membership request. Please wait a moment.</p>
+                   <div className="bg-slate-800/50 rounded-xl p-4 max-w-md mx-auto">
+                     <p className="text-amber-400 text-sm mb-2">To complete your membership, please submit your payment at the reception and provide your transaction details.</p>
+                     <p className="text-white font-mono text-lg">Account: <span className="text-slate-400">0000-0000-0000</span></p>
+                   </div>
+                 </motion.div>
+               )}
+               {freshUserData?.membershipStatus === 'rejected' && (
+                 // Rejected State - Red glassmorphism card
+                 <motion.div 
+                   initial={{ opacity: 0, x: -20 }}
+                   animate={{ opacity: 1, x: 0 }}
+                   className="text-center py-8"
+                 >
+                   <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-r from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/30">
+                     <X className="w-10 h-10 text-white" />
+                   </div>
+                   <h3 className="text-2xl font-bold text-white mb-2">Membership Rejected</h3>
+                   <p className="text-slate-400">Your membership request was not approved. Please contact the reception for more information.</p>
+                 </motion.div>
+               )}
+               {!isPendingApproval && freshUserData?.membershipStatus !== 'rejected' && isMember && planBadge && (
+                 // Member State - Show plan badge
+                 <div className="flex items-center justify-center">
+                   <div className={`px-6 py-3 rounded-full text-lg font-bold shadow-lg ${planBadge.color}`}>
+                     {planBadge.label} Plan
+                   </div>
+                 </div>
+               )}
+               {!isPendingApproval && freshUserData?.membershipStatus !== 'rejected' && !isMember && (
+                 // Not a member - Show upgrade prompt
+                 <div className="text-center py-4">
+                   <p className="text-slate-400 mb-4">Enjoy premium membership benefits</p>
+                   <motion.button
+                     whileHover={{ scale: 1.02 }}
+                     whileTap={{ scale: 0.98 }}
+                     onClick={() => setShowMembershipModal(true)}
+                     className="glass-button blue"
+                   >
+                     Upgrade Now
+                   </motion.button>
+                 </div>
+               )}
+             </motion.div>
+
+             {!isProfileComplete && (
               <motion.button
                 variants={slideUpVariant}
                 whileHover={{ scale: 1.02 }}
