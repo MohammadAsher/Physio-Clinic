@@ -84,23 +84,29 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
 
         try {
           // Save exercises with therapist assignment and lastUpdated timestamp
-          await updateDoc(doc(db, 'users', selectedPatient.id), {
-            assignedExercises: selectedExercises,
-            assignedTherapistId: selectedPatient.assignedTherapistId,
-            assignedTherapistName: selectedTherapist.name,
-            status: 'under_treatment',
-            lastUpdated: new Date()
-          });
+           await updateDoc(doc(db, 'users', selectedPatient.id), {
+             assignedExercises: selectedExercises,
+             assignedTherapistId: selectedPatient.assignedTherapistId,
+             assignedTherapistName: selectedTherapist.name,
+             status: 'under_treatment',
+             prescription: selectedPatient.prescription || '',
+             role: 'patient',
+             totalSessions: selectedPatient.totalSessions || 10,
+             lastUpdated: new Date()
+           });
 
           // Update local state
-          setSelectedPatient({ 
-            ...selectedPatient, 
-            assignedExercises: selectedExercises,
-            assignedTherapistId: selectedPatient.assignedTherapistId,
-            assignedTherapistName: selectedTherapist.name,
-            status: 'under_treatment',
-            lastUpdated: new Date()
-          });
+           setSelectedPatient({ 
+             ...selectedPatient, 
+             assignedExercises: selectedExercises,
+             assignedTherapistId: selectedPatient.assignedTherapistId,
+             assignedTherapistName: selectedTherapist.name,
+             status: 'under_treatment',
+             prescription: selectedPatient.prescription || '',
+             role: 'patient',
+             totalSessions: selectedPatient.totalSessions || 10,
+             lastUpdated: new Date()
+           });
 
           setShowExerciseModal(false);
           alert('Exercise plan assigned successfully!');
@@ -540,6 +546,22 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Prescription / Clinical Notes */}
+              <div className="p-6 border-b border-white/5">
+                <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
+                  Clinical Notes / Prescription
+                </label>
+                <textarea
+                  value={selectedPatient?.prescription || ''}
+                  onChange={(e) => setSelectedPatient({
+                    ...selectedPatient,
+                    prescription: e.target.value
+                  })}
+                  placeholder="Write clinical notes or prescription for the patient..."
+                  className="glass-input w-full py-3 px-4 text-sm rounded-xl resize-y min-h-[100px]"
+                />
               </div>
 
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
