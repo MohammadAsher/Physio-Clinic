@@ -9,6 +9,7 @@ import { User } from '@/types';
 import CounterAnimation from './CounterAnimation';
 import MedicalEmptyState from './MedicalEmptyState';
 import RoleBasedQuotes from './RoleBasedQuotes';
+import AnalyticsSuite from './AnalyticsSuite';
 
 interface AdminDashboardProps {
   users: User[];
@@ -21,6 +22,7 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
   const [doctors, setDoctors] = useState<User[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [feeInputs, setFeeInputs] = useState<Record<string, string>>({});
+  const [sessionInputs, setSessionInputs] = useState<Record<string, string>>({});
   const [membershipRequests, setMembershipRequests] = useState<any[]>([]);
 
   useEffect(() => {
@@ -86,38 +88,39 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
     }
   };
 
-    const handleApproveMembership = async (requestId: string, userId: string, totalSessions: number) => {
+const handleApproveMembership = async (requestId: string, userId: string, totalSessions: number, fees: number) => {
        if (!totalSessions || totalSessions <= 0) return;
        const totalSessionsNum = Number(totalSessions);
-       const fees = Number(feeInputs[userId]) || 0;
+       const feesNum = Number(fees) || 0;
        try {
-         // Update the membership request status
-         await updateDoc(doc(db, 'membershipRequests', requestId), {
-           status: 'approved',
-           approvedAt: new Date(),
-           totalSessions: totalSessionsNum,
-           feesPaid: fees
-         });
+          // Update the membership request status
+          await updateDoc(doc(db, 'membershipRequests', requestId), {
+            status: 'approved',
+            approvedAt: new Date(),
+            totalSessions: totalSessionsNum,
+            feesPaid: feesNum
+          });
+          
+          // Update the patient's user document
+          await updateDoc(doc(db, 'users', userId), {
+            isMember: true,
+            membershipStatus: 'active',
+            membershipType: 'custom',
+            totalSessions: totalSessionsNum,
+            totalFees: feesNum,
+            completedSessions: 0
+          });
+          
+          // Clear both inputs for this patient
+          setFeeInputs({ ...feeInputs, [userId]: '' });
+          setSessionInputs({ ...sessionInputs, [userId]: '' });
          
-         // Update the patient's user document
-         await updateDoc(doc(db, 'users', userId), {
-           isMember: true,
-           membershipStatus: 'active',
-           membershipType: 'custom',
-           totalSessions: totalSessionsNum,
-           totalFees: fees,
-           completedSessions: 0
-         });
-         
-         // Clear the fee input for this patient
-         setFeeInputs({ ...feeInputs, [userId]: '' });
-        
-        setShowConfetti(true);
-        setTimeout(() => setShowConfetti(false), 3000);
-      } catch (err) {
-        console.error('Error approving membership:', err);
-      }
-    };
+         setShowConfetti(true);
+         setTimeout(() => setShowConfetti(false), 3000);
+       } catch (err) {
+         console.error('Error approving membership:', err);
+       }
+     };
 
   const handleRejectMembership = async (requestId: string, userId: string) => {
     try {
@@ -268,9 +271,12 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
               <p className="text-slate-400 text-sm">
                 {stat.placeholder ? 'Scan member QR code' : `Total ${stat.label.toLowerCase()}`}
               </p>
-            </motion.div>
-          ))}
+</motion.div>
+        ))}
         </div>
+
+        {/* Analytics Suite */}
+        <AnalyticsSuite isAdmin={true} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <motion.div
@@ -373,44 +379,45 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
                      </div>
                    )}
                    
-                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                     <div>
-                       <label className="text-slate-400 text-xs mb-2 block">Fees Paid (PKR)</label>
-                       <input
-                         type="number"
-                         placeholder="e.g., 5000"
-                         value={feeInputs[patient.id] || ''}
-                         onChange={(e) => setFeeInputs({ ...feeInputs, [patient.id]: e.target.value })}
-                         className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-sky-500 transition-colors"
-                       />
-                     </div>
-                     <div>
-                       <label className="text-slate-400 text-xs mb-2 block">Total Sessions</label>
-                       <input
-                         type="number"
-                         placeholder="e.g., 10"
-                         value={feeInputs[patient.id] || ''}
-                         onChange={(e) => setFeeInputs({ ...feeInputs, [patient.id]: e.target.value })}
-                         className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-sky-500 transition-colors"
-                       />
-                     </div>
-                   </div>
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="text-slate-400 text-xs mb-2 block">Fees Paid (PKR)</label>
+                        <input
+                          type="number"
+                          placeholder="e.g., 5000"
+                          value={feeInputs[patient.id] || ''}
+                          onChange={(e) => setFeeInputs({ ...feeInputs, [patient.id]: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-sky-500 transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-400 text-xs mb-2 block">Total Sessions</label>
+                        <input
+                          type="number"
+                          placeholder="e.g., 10"
+                          value={sessionInputs[patient.id] || ''}
+                          onChange={(e) => setSessionInputs({ ...sessionInputs, [patient.id]: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-sky-500 transition-colors"
+                        />
+                      </div>
+                    </div>
                    
-                   <div className="flex gap-3">
-                     <motion.button
-                       whileHover={{ scale: 1.02 }}
-                       whileTap={{ scale: 0.98 }}
-                       onClick={() => {
-                         const totalSessions = Number(feeInputs[patient.id]);
-                         if (totalSessions > 0) {
-                           handleApproveMembership(request.id, patient.id, totalSessions);
-                         }
-                       }}
-                       className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-medium text-sm hover:shadow-[0_8px_24px_rgba(16,185,129,0.4)] transition-all"
-                     >
-                       <Check className="w-4 h-4" />
-                       Approve
-                     </motion.button>
+<div className="flex gap-3">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          const totalSessions = Number(sessionInputs[patient.id]);
+                          const fees = Number(feeInputs[patient.id]) || 0;
+                          if (totalSessions > 0) {
+                            handleApproveMembership(request.id, patient.id, totalSessions, fees);
+                          }
+                        }}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white font-medium text-sm hover:shadow-[0_8px_24px_rgba(16,185,129,0.4)] transition-all"
+                      >
+                        <Check className="w-4 h-4" />
+                        Approve
+                      </motion.button>
                      <motion.button
                        whileHover={{ scale: 1.02 }}
                        whileTap={{ scale: 0.98 }}

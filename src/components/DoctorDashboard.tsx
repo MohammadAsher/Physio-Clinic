@@ -7,16 +7,12 @@ import { Patient, Exercise, User } from '@/types';
 import { EXERCISES } from '@/lib/data';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import AnalyticsSuite from './AnalyticsSuite';
 
 interface DoctorDashboardProps {
   patients: Patient[];
   onUpdatePatient: (patient: Patient) => void;
   currentDoctor?: User;
-}
-
-interface DoctorDashboardProps {
-  patients: Patient[];
-  onUpdatePatient: (patient: Patient) => void;
 }
 
 export default function DoctorDashboard({ patients, onUpdatePatient, currentDoctor }: DoctorDashboardProps) {
@@ -25,6 +21,9 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [doctorNotes, setDoctorNotes] = useState('');
+  const [diagnosis, setDiagnosis] = useState('');
+  const [prescribedExercises, setPrescribedExercises] = useState('');
   const [profileData, setProfileData] = useState({
     education: currentDoctor?.doctorProfile?.education || '',
     experience: currentDoctor?.doctorProfile?.experience || '',
@@ -71,16 +70,41 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
     setShowExerciseModal(true);
   };
 
-  const handleCompleteConsultation = () => {
-    if (!selectedPatient) return;
+  const handleCompleteConsultation = async () => {
+    if (!selectedPatient || !currentDoctor?.id) return;
+    
+    const exerciseNames = selectedExercises.map(e => e.name);
+    const prescription = {
+      diagnosis: diagnosis || 'General checkup',
+      exercises: exerciseNames,
+      notes: doctorNotes,
+    };
+    
     const updated = { 
       ...selectedPatient, 
       status: 'completed' as const,
-      exercises: selectedExercises 
+      exercises: selectedExercises,
+      prescription,
     };
+    
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      await updateDoc(doc(db, 'users', selectedPatient.id), {
+        status: 'completed',
+        exercises: selectedExercises,
+        prescription,
+      });
+    } catch (err) {
+      console.error('Error saving prescription:', err);
+    }
+    
     onUpdatePatient(updated as any);
     setSelectedPatient(null);
     setShowExerciseModal(false);
+    setDoctorNotes('');
+    setDiagnosis('');
+    setPrescribedExercises('');
   };
 
   const toggleExercise = (exercise: Exercise) => {
@@ -285,6 +309,16 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
         </motion.div>
       </div>
 
+      {/* Analytics Suite for Doctors */}
+      <AnalyticsSuite 
+        isDoctor={true} 
+        doctorData={{
+          patientsTreatedToday: consultingPatients.length,
+          totalAppointments: consultingPatients.length + 5,
+          dailyPatientVolume: [5, 8, 12, 7, 10, 6, 4],
+        }}
+      />
+
       <AnimatePresence>
         {showExerciseModal && (
           <motion.div
@@ -309,7 +343,32 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <motion.div
+               variants={slideUpVariant}
+               className="space-y-4"
+             >
+               <div>
+                 <label className="text-slate-400 text-xs uppercase tracking-wider mb-2 block">Diagnosis</label>
+                 <textarea
+                   value={diagnosis}
+                   onChange={(e) => setDiagnosis(e.target.value)}
+                   placeholder="Enter diagnosis..."
+                   className="glass-input w-full resize-none h-20"
+                 />
+               </div>
+               
+               <div>
+                 <label className="text-slate-400 text-xs uppercase tracking-wider mb-2 block">Doctor's Notes</label>
+                 <textarea
+                   value={doctorNotes}
+                   onChange={(e) => setDoctorNotes(e.target.value)}
+                   placeholder="Additional notes for patient..."
+                   className="glass-input w-full resize-none h-24"
+                 />
+               </div>
+             </motion.div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {EXERCISES.map((exercise) => {
                   const isSelected = selectedExercises.some(e => e.id === exercise.id);
                   return (

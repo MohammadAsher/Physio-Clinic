@@ -48,6 +48,11 @@ export interface Appointment {
   date: Date;
   status: 'pending' | 'completed' | 'cancelled';
   type: 'general' | 'specific';
+  prescription?: {
+    diagnosis: string;
+    exercises: string[];
+    notes: string;
+  };
 }
 
 export interface Report {

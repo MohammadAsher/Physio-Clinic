@@ -8,6 +8,7 @@ import { User, Patient } from '@/types';
 import CounterAnimation from './CounterAnimation';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
+import PrescriptionPDF from './PrescriptionPDF';
 
 interface PatientOverviewProps {
   user: User;
@@ -146,6 +147,26 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
               </div>
             ))}
           </div>
+        </motion.div>
+      )}
+
+      {/* Prescription Download Section */}
+      {(user as any).prescription && (
+        <motion.div variants={slideUpVariant} className="glass-card p-6 rounded-2xl">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-600 flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-white" />
+            </div>
+            <h3 className="text-lg font-semibold text-white">Treatment Prescription</h3>
+          </div>
+          <PrescriptionPDF
+            patientName={user.name}
+            doctorName={(user as any).assignedDoctorName?.replace('Dr. ', '') || 'Doctor'}
+            date={new Date().toLocaleDateString()}
+            diagnosis={(user as any).prescription?.diagnosis || 'General physiotherapy'}
+            exercises={(user as any).prescription?.exercises || []}
+            notes={(user as any).prescription?.notes || ''}
+          />
         </motion.div>
       )}
 
