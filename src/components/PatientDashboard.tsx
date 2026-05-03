@@ -84,7 +84,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
     });
   }, [user]);
 
-  const getPlanBadge = (amount?: number) => {
+const getPlanBadge = (amount?: number) => {
     if (!amount || amount === 0) return null;
     if (amount >= 3000 && amount <= 7000) {
       return { label: 'Silver', color: 'bg-slate-400 text-white' };
@@ -95,8 +95,6 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
     }
     return null;
   };
-
-  const planBadge = getPlanBadge(user?.totalFees);
 
    const [freshUserData, setFreshUserData] = useState<User | null>(null);
    
@@ -255,91 +253,13 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
     switch (activeView) {
       case 'overview':
         return (
-          <motion.div
+<motion.div
             variants={staggerContainer}
             initial="hidden"
             animate="visible"
             className="space-y-6"
           >
-            {/* Profile Card with Plan Badge */}
-            <motion.div variants={slideUpVariant} className="glass-card-interactive p-6 rounded-2xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-white">{user.name}</h2>
-                  <p className="text-slate-400 text-sm">Patient Dashboard</p>
-                </div>
-                {planBadge && (
-                  <div className={`px-4 py-2 rounded-full text-sm font-bold shadow-lg ${planBadge.color}`}>
-                    {planBadge.label} Plan
-                  </div>
-                )}
-              </div>
-             </motion.div>
-
-             {/* Membership Status Card */}
-             <motion.div variants={slideUpVariant} className="glass-card p-6 rounded-2xl">
-               {isPendingApproval && (
-                 // Pending State - Sexy animated card with pulse effect
-                 <motion.div 
-                   initial={{ opacity: 0, scale: 0.9 }}
-                   animate={{ opacity: 1, scale: 1 }}
-                   transition={{ 
-                     duration: 2,
-                     repeat: Infinity,
-                     repeatType: 'reverse'
-                   }}
-                   className="text-center py-8"
-                 >
-                   <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/30 animate-pulse">
-                     <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
-                   </div>
-                   <h3 className="text-2xl font-bold text-white mb-2">Processing Membership</h3>
-                   <p className="text-slate-400 mb-4">Our team is reviewing your membership request. Please wait a moment.</p>
-                   <div className="bg-slate-800/50 rounded-xl p-4 max-w-md mx-auto">
-                     <p className="text-amber-400 text-sm mb-2">To complete your membership, please submit your payment at the reception and provide your transaction details.</p>
-                     <p className="text-white font-mono text-lg">Account: <span className="text-slate-400">0000-0000-0000</span></p>
-                   </div>
-                 </motion.div>
-               )}
-               {freshUserData?.membershipStatus === 'rejected' && (
-                 // Rejected State - Red glassmorphism card
-                 <motion.div 
-                   initial={{ opacity: 0, x: -20 }}
-                   animate={{ opacity: 1, x: 0 }}
-                   className="text-center py-8"
-                 >
-                   <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-r from-red-500 to-rose-600 flex items-center justify-center shadow-lg shadow-red-500/30">
-                     <X className="w-10 h-10 text-white" />
-                   </div>
-                   <h3 className="text-2xl font-bold text-white mb-2">Membership Rejected</h3>
-                   <p className="text-slate-400">Your membership request was not approved. Please contact the reception for more information.</p>
-                 </motion.div>
-               )}
-               {!isPendingApproval && freshUserData?.membershipStatus !== 'rejected' && isMember && planBadge && (
-                 // Member State - Show plan badge
-                 <div className="flex items-center justify-center">
-                   <div className={`px-6 py-3 rounded-full text-lg font-bold shadow-lg ${planBadge.color}`}>
-                     {planBadge.label} Plan
-                   </div>
-                 </div>
-               )}
-               {!isPendingApproval && freshUserData?.membershipStatus !== 'rejected' && !isMember && (
-                 // Not a member - Show upgrade prompt
-                 <div className="text-center py-4">
-                   <p className="text-slate-400 mb-4">Enjoy premium membership benefits</p>
-                   <motion.button
-                     whileHover={{ scale: 1.02 }}
-                     whileTap={{ scale: 0.98 }}
-                     onClick={() => setShowMembershipModal(true)}
-                     className="glass-button blue"
-                   >
-                     Upgrade Now
-                   </motion.button>
-                 </div>
-               )}
-             </motion.div>
-
-             {!isProfileComplete && (
+            {!isProfileComplete && (
               <motion.button
                 variants={slideUpVariant}
                 whileHover={{ scale: 1.02 }}
@@ -556,39 +476,124 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
 
        {/* Main Content - Centered */}
        <div className="w-full max-w-6xl mx-auto px-4 py-8">
-         {isAssigned ? (
-           <motion.div
-             initial={{ opacity: 0, y: -10 }}
-             animate={{ opacity: 1, y: 0 }}
-             className="mt-4 mb-6 glass-card p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20"
-           >
-             <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center border-2 border-rose-400/60">
-                   <UserCheck className="w-5 h-5 text-white" />
-                 </div>
-               <div>
-                 <p className="text-slate-400 text-xs uppercase tracking-wider font-bold">Status: Assigned</p>
-                 <p className="text-white font-semibold text-lg">{freshUserData?.assignedTherapistName}</p>
-               </div>
-             </div>
-           </motion.div>
-         ) : (
-           <motion.div
-             initial={{ opacity: 0, y: -10 }}
-             animate={{ opacity: 1, y: 0 }}
-             className="mt-4 mb-6 glass-card p-4 bg-amber-500/5 border border-amber-500/20"
-           >
-             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center border-2 border-rose-400/60">
-                 <UserCheck className="w-5 h-5 text-amber-500" />
-               </div>
-               <div>
-                 <p className="text-amber-500 font-semibold uppercase text-xs tracking-widest">Status: Queue</p>
-                 <p className="text-slate-400 text-sm">Assigning a physiotherapist shortly...</p>
-               </div>
-             </div>
-           </motion.div>
-         )}
+{/* Care Journey Card - Assigned Status */}
+          {isAssigned ? (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ scale: 1.02 }}
+              transition={{ duration: 0.3 }}
+              className="mt-4 mb-6 glass-card-interactive p-6 rounded-2xl relative overflow-hidden group"
+            >
+              {/* Gradient glow effect */}
+              <div className="absolute -inset-10 bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-emerald-500/20 blur-3xl opacity-50 group-hover:opacity-70 transition-opacity" />
+              
+              <div className="relative z-10 flex flex-col items-center text-center">
+                {/* Live Indicator */}
+                <div className="flex items-center gap-2 mb-3">
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="w-3 h-3 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50"
+                  />
+                  <span className="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Live Assignment</span>
+                </div>
+                
+                <h3 className="text-2xl font-bold text-white mb-2">
+                  Your Care Team is Ready
+                </h3>
+                
+                <motion.p
+                  animate={{ opacity: [0.8, 1, 0.8] }}
+                  transition={{ repeat: Infinity, duration: 3 }}
+                  className="text-slate-300 text-sm mb-6"
+                >
+                  {freshUserData?.assignedDoctorName ? `Dr. ${freshUserData.assignedDoctorName} has successfully assigned ` : 'We have ' }
+                  <motion.span
+                    animate={{ color: ['#34d399', '#06b6d4', '#34d399'] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="font-semibold text-cyan-400"
+                  >
+                    {freshUserData?.assignedTherapistName}
+                  </motion.span>
+                  {freshUserData?.assignedDoctorName ? ' for your session.' : ' your assigned physiotherapist.'}
+                </motion.p>
+                
+                {/* Assignment Flow Icons */}
+                <div className="flex items-center justify-center gap-6 mb-4">
+                  {/* Doctor Icon */}
+                  <div className="flex flex-col items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a2 2 0 11-4 0 2 2 0 014 0zM6 11a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <p className="text-slate-400 text-xs mt-1">{freshUserData?.assignedDoctorName ? `Dr. ${freshUserData.assignedDoctorName}` : 'Doctor'}</p>
+                  </div>
+                  
+                  {/* Flow Animation */}
+                  <div className="flex items-center">
+                    <div className="relative w-16 h-6">
+                      {/* Dotted line */}
+                      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-600" />
+                      {/* Animated dots */}
+                      <motion.div
+                        animate={{ x: ['0%', '300%'] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                        className="absolute top-1/2 w-2 h-2 bg-cyan-400 rounded-full shadow-lg shadow-cyan-400/50 -mt-1"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Patient Icon */}
+                  <div className="flex flex-col items-center">
+                    <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border-2 border-rose-400/60">
+                      <UserCheck className="w-5 h-5 text-rose-400" />
+                    </div>
+                    <p className="text-slate-400 text-xs mt-1">You</p>
+                  </div>
+                  
+                  {/* Flow Animation */}
+                  <div className="flex items-center">
+                    <div className="relative w-16 h-6">
+                      {/* Dotted line */}
+                      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-600" />
+                      {/* Animated dots */}
+                      <motion.div
+                        animate={{ x: ['0%', '300%'] }}
+                        transition={{ repeat: Infinity, duration: 1.5, ease: 'linear', delay: 0.5 }}
+                        className="absolute top-1/2 w-2 h-2 bg-emerald-400 rounded-full shadow-lg shadow-emerald-400/50 -mt-1"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Therapist Icon */}
+                  <div className="flex flex-col items-center">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                      <UserCheck className="w-6 h-6 text-white" />
+                    </div>
+                    <p className="text-slate-400 text-xs mt-1">{freshUserData?.assignedTherapistName || 'Therapist'}</p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 mb-6 glass-card p-4 bg-amber-500/5 border border-amber-500/20"
+            >
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center border-2 border-rose-400/60">
+                  <UserCheck className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-amber-500 font-semibold uppercase text-xs tracking-widest">Status: Queue</p>
+                  <p className="text-slate-400 text-sm">Assigning a physiotherapist shortly...</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
         {/* Role-Based Quotes Section */}
         <section className="py-10 px-4">
