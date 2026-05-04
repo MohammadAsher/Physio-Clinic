@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { RadialBarChart, RadialBar, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { BarChart3, PieChart as PieChartIcon, AreaChart as AreaChartIcon, Calendar } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import PremiumCard from './PremiumCard';
 
 interface AnalyticsSuiteProps {
   isAdmin?: boolean;
@@ -17,6 +19,7 @@ interface AnalyticsSuiteProps {
     dailyRevenue: number;
     monthlyTarget: number;
     monthlyRevenue: number;
+    appointments?: any[];
     earningsData: {
       daily: { name: string; value: number }[];
       weekly: { name: string; value: number }[];
@@ -36,11 +39,98 @@ const slideUpVariant = {
 
 export default function AnalyticsSuite({ isAdmin = false, isDoctor = false, doctorData, adminData }: AnalyticsSuiteProps) {
   const [earningsView, setEarningsView] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [selectedMonthData, setSelectedMonthData] = useState<{ month: number; year: number; name: string } | null>(null);
+  const [dailyBreakdown, setDailyBreakdown] = useState<{ name: string; value: number; month?: number; year?: number }[]>([]);
 
   const earningsData = adminData?.earningsData || {
-    daily: Array.from({ length: 7 }, (_, i) => ({ name: `Day ${i + 1}`, value: Math.floor(Math.random() * 5000) + 1000 })),
-    weekly: Array.from({ length: 4 }, (_, i) => ({ name: `Week ${i + 1}`, value: Math.floor(Math.random() * 20000) + 10000 })),
-    monthly: Array.from({ length: 6 }, (_, i) => ({ name: `Month ${i + 1}`, value: Math.floor(Math.random() * 80000) + 30000 })),
+    daily: Array.from({ length: 7 }, (_, i) => {
+      const day = new Date();
+      day.setDate(day.getDate() - (6 - i));
+      return {
+        name: format(day, 'EEE'),
+        value: Math.floor(Math.random() * 5000) + 1000,
+      };
+    }),
+    weekly: Array.from({ length: 4 }, (_, i) => ({
+      name: `Week ${i + 1}`,
+      value: Math.floor(Math.random() * 20000) + 10000,
+    })),
+    monthly: Array.from({ length: 6 }, (_, i) => {
+      const monthDate = new Date();
+      monthDate.setMonth(monthDate.getMonth() - (5 - i));
+      return {
+        name: format(monthDate, 'MMM'),
+        value: Math.floor(Math.random() * 80000) + 30000,
+        month: monthDate.getMonth() + 1,
+        year: monthDate.getFullYear(),
+      };
+    }),
+  };
+
+  const getDaySuffix = (day: number): string => {
+    if (day >= 11 && day <= 13) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
+  };
+
+  // Compute daily breakdown for selected month
+  useEffect(() => {
+    if (!selectedMonthData || !(adminData as any)?.appointments) {
+      setDailyBreakdown([]);
+      return;
+    }
+    const monthAppointments = (adminData as any).appointments.filter((appt: any) => {
+      const date = appt.date instanceof Date ? appt.date : new Date(appt.date);
+      return date.getMonth() + 1 === selectedMonthData.month && date.getFullYear() === selectedMonthData.year;
+    });
+    // Group by day of month
+    const dailyMap = new Map<number, number>();
+    monthAppointments.forEach((appt: any) => {
+      const date = appt.date instanceof Date ? appt.date : new Date(appt.date);
+      const day = date.getDate();
+      dailyMap.set(day, (dailyMap.get(day) || 0) + (appt.fee || 0));
+    });
+    // Convert to array with formatted day labels (1st, 2nd, 3rd, 4th...)
+    const dailyData = Array.from(dailyMap.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([day, value]) => ({
+        name: `${day}${getDaySuffix(day)}`,
+        value,
+        day,
+        month: selectedMonthData.month,
+        year: selectedMonthData.year,
+      }));
+    setDailyBreakdown(dailyData);
+  }, [selectedMonthData, (adminData as any)?.appointments]);
+
+  const formatCurrency = (value: number) => `PKR ${value.toLocaleString()}`;
+
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0].payload;
+      const date = new Date(data.year, data.month - 1, data.day || 1);
+      const formattedDate = data.day
+        ? format(date, 'MMMM d, yyyy')
+        : format(date, 'MMMM yyyy');
+      return (
+        <div className="bg-slate-900 border border-slate-700 rounded-lg p-3 shadow-lg">
+          <p className="text-slate-400 text-sm">{formattedDate}</p>
+          <p className="text-white font-bold">
+            {formatCurrency(payload[0].value)}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const handleBarClick = (data: any) => {
+    if (selectedMonthData || !data.month || !data.year) return;
+    setSelectedMonthData({ month: data.month, year: data.year, name: data.name });
   };
 
   const radialData = [
@@ -101,15 +191,18 @@ export default function AnalyticsSuite({ isAdmin = false, isDoctor = false, doct
             {/* Daily Revenue Radial Bar */}
             <motion.div
               variants={slideUpVariant}
-              className="glass-card p-6 rounded-2xl"
+              className="premium-glass premium-card relative overflow-hidden group"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center">
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1551269901-5c5e14c25df7?w=800&q=80')] bg-cover bg-center opacity-20 group-hover:scale-105 transition-transform duration-500" />
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 via-transparent to-slate-900/80" />
+              <div className="absolute inset-0 backdrop-blur-[1px]" />
+              <div className="relative z-10 flex items-center gap-3 mb-4 p-6">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg">
                   <BarChart3 className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="text-lg font-semibold text-white">Daily Revenue</h3>
+                <h3 className="text-lg font-semibold text-white drop-shadow-lg">Daily Revenue</h3>
               </div>
-              <div className="h-64">
+              <div className="relative z-10 h-64 px-6 pb-6">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadialBarChart
                     cx="50%"
@@ -129,30 +222,36 @@ export default function AnalyticsSuite({ isAdmin = false, isDoctor = false, doct
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '8px',
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: '12px',
                         color: '#fff',
+                        backdropFilter: 'blur(8px)',
                       }}
                     />
                   </RadialBarChart>
                 </ResponsiveContainer>
               </div>
-              <p className="text-center text-slate-400 mt-2">PKR {(adminData?.dailyRevenue || 35000).toLocaleString()}</p>
+              <p className="relative z-10 text-center text-slate-300 mt-2 pb-6 font-bold">
+                {formatCurrency(adminData?.dailyRevenue || 35000)}
+              </p>
             </motion.div>
 
             {/* Monthly Target Radial Bar */}
             <motion.div
               variants={slideUpVariant}
-              className="glass-card p-6 rounded-2xl"
+              className="premium-glass premium-card relative overflow-hidden group"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1551269901-b5f7d5c0c0c2?w=800&q=80')] bg-cover bg-center opacity-20 group-hover:scale-105 transition-transform duration-500" />
+              <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 via-transparent to-slate-900/70" />
+              <div className="absolute inset-0 backdrop-blur-[1px]" />
+              <div className="relative z-10 flex items-center gap-3 mb-4 p-6">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-white shadow-lg">
                   <Calendar className="w-5 h-5 text-white" />
                 </div>
-                <h3 className="text-lg font-semibold text-white">Monthly Target</h3>
+                <h3 className="text-lg font-semibold text-white drop-shadow-lg">Monthly Target</h3>
               </div>
-              <div className="h-64">
+              <div className="relative z-10 h-64 px-6 pb-6">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadialBarChart
                     cx="50%"
@@ -171,87 +270,107 @@ export default function AnalyticsSuite({ isAdmin = false, isDoctor = false, doct
                     />
                     <Tooltip
                       contentStyle={{
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: '8px',
+                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        borderRadius: '12px',
                         color: '#fff',
+                        backdropFilter: 'blur(8px)',
                       }}
                     />
                   </RadialBarChart>
                 </ResponsiveContainer>
               </div>
-              <p className="text-center text-slate-400 mt-2">{adminData?.monthlyTarget || 65}% Complete</p>
+              <p className="relative z-10 text-center text-slate-300 mt-2 pb-6 font-bold">
+                {adminData?.monthlyTarget || 65}% Complete
+              </p>
             </motion.div>
           </div>
 
-          {/* Earnings Bar Chart */}
-          <motion.div
-            variants={slideUpVariant}
-            className="glass-card p-6 rounded-2xl"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center">
-                  <BarChart3 className="w-5 h-5 text-white" />
+           {/* Earnings Bar Chart */}
+            <motion.div
+              variants={slideUpVariant}
+              className="premium-glass premium-card relative overflow-hidden group"
+            >
+              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1551269901-5c5e14c25df7?w=800&q=80')] bg-cover bg-center opacity-20 group-hover:scale-105 transition-transform duration-500" />
+              <div className="absolute inset-0 bg-gradient-to-br from-slate-900/70 via-transparent to-slate-900/80" />
+              <div className="absolute inset-0 backdrop-blur-[1px]" />
+              <div className="relative z-10 flex items-center justify-between mb-4 p-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-lg">
+                    <BarChart3 className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white drop-shadow-lg">Earnings</h3>
                 </div>
-                <h3 className="text-lg font-semibold text-white">Earnings</h3>
+                <div className="flex gap-2">
+                  {(['daily', 'weekly', 'monthly'] as const).map((view) => (
+                    <button
+                      key={view}
+                      onClick={() => setEarningsView(view)}
+                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
+                        earningsView === view
+                          ? 'premium-gradient text-white'
+                          : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      {view.charAt(0).toUpperCase() + view.slice(1)}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex gap-2">
-                {(['daily', 'weekly', 'monthly'] as const).map((view) => (
-                  <button
-                    key={view}
-                    onClick={() => setEarningsView(view)}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-all ${
-                      earningsView === view
-                        ? 'premium-gradient text-white'
-                        : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                    }`}
-                  >
-                    {view.charAt(0).toUpperCase() + view.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={earningsData[earningsView]}>
-                  <XAxis
-                    dataKey="name"
-                    stroke="#64748b"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="#64748b"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `PKR ${value / 1000}k`}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px',
-                      color: '#fff',
-                    }}
-                  />
-                  <Bar
-                    dataKey="value"
-                    fill="url(#barGradient)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <defs>
-                    <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#06b6d4" />
-                      <stop offset="100%" stopColor="#3b82f6" />
-                    </linearGradient>
-                  </defs>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </motion.div>
+               <div className="relative z-10 h-64 px-6 pb-6">
+                 <ResponsiveContainer width="100%" height="100%">
+                   <BarChart
+                     data={selectedMonthData ? dailyBreakdown : earningsData[earningsView]}
+                     barGap={0}
+                   >
+                     <XAxis
+                       dataKey="name"
+                       stroke="#64748b"
+                       fontSize={12}
+                       tickLine={false}
+                       axisLine={false}
+                     />
+                     <YAxis
+                       stroke="#64748b"
+                       fontSize={12}
+                       tickLine={false}
+                       axisLine={false}
+                       tickFormatter={(value) => `PKR ${value / 1000}k`}
+                     />
+                     <CustomTooltip />
+                     <Bar
+                       dataKey="value"
+                       fill="url(#barGradient)"
+                       radius={[4, 4, 0, 0]}
+                       filter="url(#barShadow)"
+                       onClick={handleBarClick}
+                     />
+                     <defs>
+                       <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                         <stop offset="0%" stopColor="#06b6d4" />
+                         <stop offset="100%" stopColor="#3b82f6" />
+                       </linearGradient>
+                       <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+                         <feDropShadow dx="0" dy="2" stdDeviation="3" floodColor="rgba(0,0,0,0.5)" />
+                       </filter>
+                     </defs>
+                   </BarChart>
+                 </ResponsiveContainer>
+               </div>
+               {selectedMonthData && (
+                 <div className="relative z-10 px-6 pb-6">
+                   <h4 className="text-lg font-semibold text-white mb-4">
+                     Earnings for {selectedMonthData.name} {selectedMonthData.year}
+                   </h4>
+                   <button
+                     onClick={() => setSelectedMonthData(null)}
+                     className="absolute top-4 right-4 px-3 py-1 rounded-lg bg-slate-800/50 text-slate-400 hover:bg-slate-700/50 transition-colors text-sm"
+                   >
+                     Back to Monthly
+                   </button>
+                 </div>
+               )}
+            </motion.div>
         </>
       )}
 

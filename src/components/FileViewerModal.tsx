@@ -67,22 +67,43 @@ export default function FileViewerModal({ isOpen, onClose, fileUrl, fileName, fi
                     className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
                   />
                 </div>
-              ) : fileType === 'pdf' ? (
-                <div className="flex flex-col items-center justify-center min-h-[60vh]">
-                  <div className="text-center">
-                    <FileText className="w-20 h-20 text-rose-400 mx-auto mb-4" />
-                    <p className="text-slate-300 mb-4">PDF Document: {fileName}</p>
-                    <a
-                      href={fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-6 py-3 bg-gradient-to-r from-rose-600 to-crimson-700 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-rose-900/30 transition-all"
-                    >
-                      Open PDF in New Tab
-                    </a>
+                 ) : fileType === 'pdf' ? (
+                  <div className="w-full h-full flex flex-col">
+                    <div className="p-4 border-b border-white/10 bg-slate-900/50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                            <FileText className="w-5 h-5 text-rose-400" />
+                          </div>
+                          <div>
+                            <h3 className="text-white font-semibold truncate max-w-md">{fileName}</h3>
+                            <p className="text-slate-400 text-xs uppercase tracking-wider">PDF Document</p>
+                          </div>
+                        </div>
+                        <a
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2 bg-gradient-to-r from-rose-600 to-crimson-700 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-rose-900/30 transition-all flex items-center gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                          Download
+                        </a>
+                      </div>
+                    </div>
+                    <div className="flex-1 p-4">
+                      <iframe
+                        src={`${fileUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+                        className="w-full h-full rounded-lg border border-white/10"
+                        title="PDF Document"
+                        style={{ background: '#1a1a1a' }}
+                      />
+                    </div>
                   </div>
-                </div>
-              ) : (
+                ) : (
                 <div className="flex flex-col items-center justify-center min-h-[60vh]">
                   <File className="w-20 h-20 text-slate-400 mb-4" />
                   <p className="text-slate-300">{fileName}</p>

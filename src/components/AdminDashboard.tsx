@@ -10,6 +10,7 @@ import CounterAnimation from './CounterAnimation';
 import MedicalEmptyState from './MedicalEmptyState';
 import RoleBasedQuotes from './RoleBasedQuotes';
 import AnalyticsSuite from './AnalyticsSuite';
+import PremiumCard from './PremiumCard';
 
 interface AdminDashboardProps {
   users: User[];
@@ -240,40 +241,56 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
           <RoleBasedQuotes role="admin" />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          {[
-            { label: 'Patients', value: patients.length, icon: <Users className="w-5 h-5" />, color: 'blue', accent: 'from-blue-500 to-cyan-500' },
-            { label: 'Doctors', value: doctors.length, icon: <UserCheck className="w-5 h-5" />, color: 'red', accent: 'from-red-500 to-rose-500' },
-            { label: 'Unassigned', value: unassignedPatients.length, icon: <Clock className="w-5 h-5" />, color: 'amber', accent: 'from-amber-400 to-yellow-500' },
-            { label: 'Pending', value: membershipRequests.length, icon: <FileText className="w-5 h-5" />, color: 'purple', accent: 'from-purple-500 to-violet-500' },
-            { label: 'Scan QR', value: '', icon: <QrCode className="w-5 h-5" />, color: 'sky', accent: 'from-sky-400 to-blue-500', placeholder: true },
-          ].map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              variants={slideUpVariant}
-              whileHover={{ scale: 1.02, y: -4 }}
-              whileTap={{ scale: 0.98 }}
-              className="premium-glass p-6 cursor-pointer"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.accent} flex items-center justify-center text-white shadow-lg`}>
-                  {stat.icon}
-                </div>
-                <h2 className="text-xl font-semibold text-white">{stat.label}</h2>
-              </div>
-              <p className="text-4xl font-bold text-sky mb-2">
-                {stat.placeholder ? (
-                  <span className="text-lg bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text text-transparent">Attendance</span>
-                ) : (
-                  <CounterAnimation value={stat.value} duration={2} />
-                )}
-              </p>
-              <p className="text-slate-400 text-sm">
-                {stat.placeholder ? 'Scan member QR code' : `Total ${stat.label.toLowerCase()}`}
-              </p>
-</motion.div>
-        ))}
-        </div>
+         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+           {[
+             { label: 'Patients', value: patients.length, icon: <Users className="w-5 h-5" />, color: 'blue', backgroundType: 'medical' },
+             { label: 'Doctors', value: doctors.length, icon: <UserCheck className="w-5 h-5" />, color: 'red', backgroundType: 'clinical' },
+             { label: 'Unassigned', value: unassignedPatients.length, icon: <Clock className="w-5 h-5" />, color: 'amber', backgroundType: 'medical' },
+             { label: 'Pending', value: membershipRequests.length, icon: <FileText className="w-5 h-5" />, color: 'purple', backgroundType: 'document' },
+             { label: 'Scan QR', value: '', icon: <QrCode className="w-5 h-5" />, color: 'sky', backgroundType: 'clinical', placeholder: true },
+           ].map((stat, index) => (
+             <PremiumCard
+               key={stat.label}
+               backgroundImage={stat.backgroundType === 'medical' ? 'https://images.unsplash.com/photo-1576669801945-7a346954da5a?w=800&q=80' : stat.backgroundType === 'clinical' ? 'https://images.unsplash.com/photo-1551269901-5c5e14c25df7?w=800&q=80' : stat.backgroundType === 'document' ? 'https://images.unsplash.com/photo-1586983690570-5c6ddc6d9c68?w=800&q=80' : 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800&q=80'}
+               className="finance"
+               onClick={() => {}}
+             >
+               <div className="p-6">
+                 <div className="flex items-center gap-3 mb-4">
+                   <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${stat.accent} flex items-center justify-center text-white shadow-lg`}>
+                     {stat.icon}
+                   </div>
+                   <h2 className="text-xl font-semibold text-white drop-shadow-lg">{stat.label}</h2>
+                 </div>
+                 <p className="text-4xl font-bold text-sky-400 mb-2 drop-shadow-lg">
+                   {stat.placeholder ? (
+                     <span className="text-lg bg-gradient-to-r from-sky-400 to-blue-500 bg-clip-text text-transparent">Attendance</span>
+                   ) : (
+                     <CounterAnimation value={Number(stat.value)} duration={2} />
+                   )}
+                 </p>
+                 <p className="text-slate-300 text-sm">
+                   {stat.placeholder ? 'Scan member QR code' : `Total ${stat.label.toLowerCase()}`}
+                 </p>
+                 {/* Priority badge for patients with low sessions */}
+                 {stat.label === 'Patients' && patients.some(p => p.isMember && p.totalSessions && (p.totalSessions - (p.completedSessions || 0)) <= 2) && (
+                   <motion.div
+                     initial={{ scale: 0 }}
+                     animate={{ scale: 1 }}
+                     className="absolute top-2 right-2"
+                   >
+                     <div className="relative">
+                       <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-full blur-sm opacity-75 animate-pulse" />
+                       <div className="relative w-6 h-6 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 flex items-center justify-center text-white text-[10px] font-bold shadow-lg">
+                         ⚠
+                       </div>
+                     </div>
+                   </motion.div>
+                 )}
+               </div>
+             </PremiumCard>
+           ))}
+         </div>
 
         {/* Analytics Suite */}
         <AnalyticsSuite isAdmin={true} />
@@ -471,24 +488,39 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
                  </div>
                  
                  {/* Membership Info */}
-                 {patient.isMember ? (
-                   <div className="mb-4 p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
-                     <div className="flex items-center justify-between mb-1">
-                       <span className="text-emerald-400 text-xs font-medium">MEMBER</span>
-                       <span className="text-emerald-400 text-xs">
-                         {patient.totalFees ? `PKR ${patient.totalFees.toLocaleString()}` : 'Premium'}
-                       </span>
-                     </div>
-                     <div className="flex items-center justify-between">
-                       <span className="text-slate-300 text-sm">Sessions: {patient.completedSessions || 0}/{patient.totalSessions || 0}</span>
-                       <span className="text-slate-400 text-xs">{patient.membershipType || 'Custom'}</span>
-                     </div>
-                   </div>
-                 ) : (
-                   <div className="mb-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
-                     <p className="text-slate-400 text-sm">Not a member</p>
-                   </div>
-                 )}
+                  {patient.isMember ? (
+                    <div className="mb-4 p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-emerald-400 text-xs font-medium">MEMBER</span>
+                        <span className="text-emerald-400 text-xs">
+                          {patient.totalFees ? `PKR ${patient.totalFees.toLocaleString()}` : 'Premium'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-300 text-sm">Sessions: {patient.completedSessions || 0}/{patient.totalSessions || 0}</span>
+                        <span className="text-slate-400 text-xs">{patient.membershipType || 'Custom'}</span>
+                      </div>
+                      {/* Priority Warning Badge for Low Sessions */}
+                      {patient.totalSessions > 0 && (patient.totalSessions - (patient.completedSessions || 0)) <= 2 && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="mt-3 p-2 rounded-lg bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/30"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 animate-pulse" />
+                            <span className="text-xs font-bold text-amber-400 uppercase tracking-wide">
+                              Priority: Only {patient.totalSessions - (patient.completedSessions || 0)} session{patient.totalSessions - (patient.completedSessions || 0) > 1 ? 's' : ''} remaining!
+                            </span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mb-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+                      <p className="text-slate-400 text-sm">Not a member</p>
+                    </div>
+                  )}
                  
                  {/* Status */}
                  <div className="flex items-center gap-2 mb-4">

@@ -17,6 +17,7 @@ import DailyTip from './DailyTip';
 import MedicalEmptyState from './MedicalEmptyState';
 import FileViewerModal from './FileViewerModal';
 import RoleBasedQuotes from './RoleBasedQuotes';
+import PremiumCard from './PremiumCard';
 
 interface PatientDashboardProps {
   user: User;
@@ -280,72 +281,75 @@ const getPlanBadge = (amount?: number) => {
               <DailyTip />
             </motion.div>
 
-             <motion.div variants={slideUpVariant}>
-               <div className="glass-card-interactive p-6 rounded-2xl bg-gradient-to-br from-rose-500/10 to-crimson-700/5 border border-rose-500/20">
-                 <div className="flex items-center justify-between mb-4">
-                   <div className="flex items-center gap-3">
-                     <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-rose-600 to-crimson-700 flex items-center justify-center shadow-lg shadow-rose-900/30">
-                       <FileText className="w-6 h-6 text-white" />
-                     </div>
-                     <div>
-                       <h3 className="text-lg font-semibold text-white">Medical Reports</h3>
-                       <p className="text-rose-400 text-xs">Upload PDF, X-rays, MRI reports</p>
-                     </div>
-                   </div>
-                 </div>
-                 <label className="flex items-center justify-center w-full p-6 border-2 border-dashed border-rose-500/30 rounded-xl cursor-pointer hover:border-rose-500 hover:bg-rose-500/10 transition-all group">
-                   <input 
-                     type="file" 
-                     accept="image/*,.pdf" 
-                     onChange={handleUpload} 
-                     className="hidden" 
-                     disabled={uploading} 
-                   />
-                   <div className="text-center">
-                     {uploading ? (
-                       <>
-                         <div className="w-8 h-8 mx-auto mb-2 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
-                         <p className="text-rose-300 font-medium">Uploading...</p>
-                       </>
-                     ) : (
-                       <>
-                         <Upload className="w-10 h-10 mx-auto mb-2 text-rose-400 group-hover:text-rose-300 transition-colors" />
-                         <p className="text-rose-200 font-medium">Tap to Upload Report</p>
-                         <p className="text-slate-500 text-xs mt-1">PDF, JPG, PNG (Max 10MB)</p>
-                       </>
-                     )}
-                   </div>
-                 </label>
-                 
-                 {/* Recent reports list */}
-                 {reports.length > 0 && (
-                   <div className="mt-6 space-y-2">
-                     <p className="text-slate-400 text-sm mb-2">Recent Uploads:</p>
-                     {reports.slice(-3).reverse().map((report) => (
-                       <div 
-                         key={Math.random()}
-                         className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 cursor-pointer hover:border-rose-500/30 transition-all"
-                         onClick={() => setSelectedReport({
-                           fileUrl: report.fileUrl,
-                           fileName: report.fileName,
-                           fileType: report.fileType
-                         })}
-                       >
-                         <div className="flex items-center gap-2">
-                           {report.fileType === 'image' ? (
-                             <Image className="w-4 h-4 text-primary" />
-                           ) : (
-                             <File className="w-4 h-4 text-red-400" />
-                           )}
-                           <span className="text-white text-sm truncate max-w-[200px]">{report.fileName}</span>
-                         </div>
-                         <span className="text-rose-400 text-xs">View</span>
-                       </div>
-                     ))}
-                   </div>
-                 )}
-               </div>
-             </motion.div>
+                <motion.div variants={slideUpVariant}>
+                  <PremiumCard
+                    backgroundImage="https://images.unsplash.com/photo-1586983690570-5c6ddc6d9c68?w=800&q=80"
+                    className="document"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-rose-600 to-crimson-700 flex items-center justify-center shadow-lg shadow-rose-900/30">
+                          <FileText className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-white drop-shadow-lg">Medical Reports</h3>
+                          <p className="text-rose-400 text-xs">Upload PDF, X-rays, MRI reports</p>
+                        </div>
+                      </div>
+                    </div>
+                    <label className="flex items-center justify-center w-full p-6 border-2 border-dashed border-rose-500/30 rounded-xl cursor-pointer hover:border-rose-500 hover:bg-rose-500/10 transition-all group">
+                      <input 
+                        type="file" 
+                        accept="image/*,.pdf" 
+                        onChange={handleUpload} 
+                        className="hidden" 
+                        disabled={uploading} 
+                      />
+                      <div className="text-center">
+                        {uploading ? (
+                          <>
+                            <div className="w-8 h-8 mx-auto mb-2 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+                            <p className="text-rose-300 font-medium">Uploading...</p>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-10 h-10 mx-auto mb-2 text-rose-400 group-hover:text-rose-300 transition-colors" />
+                            <p className="text-rose-200 font-medium">Tap to Upload Report</p>
+                            <p className="text-slate-500 text-xs mt-1">PDF, JPG, PNG (Max 10MB)</p>
+                          </>
+                        )}
+                      </div>
+                    </label>
+                    
+                    {/* Recent reports list */}
+                    {reports.length > 0 && (
+                      <div className="mt-6 space-y-2">
+                        <p className="text-slate-400 text-sm mb-2">Recent Uploads:</p>
+                        {reports.slice(-3).reverse().map((report) => (
+                          <div 
+                            key={Math.random()}
+                            className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 cursor-pointer hover:border-rose-500/30 transition-all"
+                            onClick={() => setSelectedReport({
+                              fileUrl: report.fileUrl,
+                              fileName: report.fileName,
+                              fileType: report.fileType
+                            })}
+                          >
+                            <div className="flex items-center gap-2">
+                              {report.fileType === 'image' ? (
+                                <Image className="w-4 h-4 text-primary" />
+                              ) : (
+                                <File className="w-4 h-4 text-red-400" />
+                              )}
+                              <span className="text-white text-sm truncate max-w-[200px]">{report.fileName}</span>
+                            </div>
+                            <span className="text-rose-400 text-xs">View</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </PremiumCard>
+                </motion.div>
 
             <motion.div variants={slideUpVariant}>
               <PatientOverview 

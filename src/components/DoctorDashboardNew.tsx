@@ -24,6 +24,7 @@ import CounterAnimation from './CounterAnimation';
 import FileViewerModal from './FileViewerModal';
 import { EXERCISES } from '@/lib/data';
 import RoleBasedQuotes from './RoleBasedQuotes';
+import PremiumCard from './PremiumCard';
 
 interface DoctorDashboardProps {
   patients: any[]; 
@@ -333,22 +334,22 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                       </div>
                     </div>
 
-                    {/* Reports Section */}
-                    <motion.div 
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.2 }}
-                      className="relative rounded-3xl p-8 bg-gradient-to-b from-black/60 to-black/40 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
-                      <div className="absolute bottom-0 left-0 w-64 h-64 bg-gold/5 rounded-full blur-3xl pointer-events-none" />
-                      
-                      <h4 className="relative text-lg font-bold bg-gold-gradient bg-clip-text text-transparent mb-6 flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-gold/10 border border-gold/20">
-                          <FileText className="w-5 h-5 text-gold" />
-                        </div>
-                        Medical Reports & Documents
-                      </h4>
+                     {/* Reports Section */}
+                     <motion.div 
+                       initial={{ opacity: 0, y: 20 }}
+                       animate={{ opacity: 1, y: 0 }}
+                       transition={{ delay: 0.2 }}
+                       className="relative rounded-3xl p-8 bg-gradient-to-b from-black/60 to-black/40 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden"
+                     >
+                       <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+                       <div className="absolute bottom-0 left-0 w-64 h-64 bg-gold/5 rounded-full blur-3xl pointer-events-none" />
+                        
+                       <h4 className="relative text-lg font-bold bg-gold-gradient bg-clip-text text-transparent mb-6 flex items-center gap-3">
+                         <div className="p-2 rounded-lg bg-gold/10 border border-gold/20">
+                           <FileText className="w-5 h-5 text-gold" />
+                         </div>
+                         Medical Reports & Documents
+                       </h4>
 
                       <div className="space-y-3 mb-6">
                         {selectedPatient.reports && selectedPatient.reports.length > 0 ? (

@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "date-fns": "^4.1.0",
     "firebase": "^9.23.0",
     "framer-motion": "^11.0.3",
     "html2canvas": "^1.4.1",
