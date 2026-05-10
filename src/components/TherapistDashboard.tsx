@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, FileText, ArrowRight, CheckCircle, Clock, Dumbbell, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, updateDoc, doc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { User, Patient } from '@/types';
+import { useAuth } from '@/context/AuthContext';
 import RoleBasedQuotes from './RoleBasedQuotes';
 
 interface TherapistDashboardProps {
   user: User;
-  onLogout: () => void;
 }
 
 interface PatientWithExercises extends Patient {
@@ -23,7 +24,9 @@ interface PatientWithExercises extends Patient {
   prescription?: string;
 }
 
-export default function TherapistDashboard({ user, onLogout }: TherapistDashboardProps) {
+export default function TherapistDashboard({ user }: TherapistDashboardProps) {
+  const { logout } = useAuth();
+  const router = useRouter();
   const [patients, setPatients] = useState<PatientWithExercises[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<PatientWithExercises | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -234,7 +237,7 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
               <p className="text-white font-semibold">{user.name}</p>
             </div>
             <button
-              onClick={onLogout}
+              onClick={() => { logout(); router.push('/'); }}
               className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors text-sm font-medium"
             >
               Sign Out

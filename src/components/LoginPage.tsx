@@ -1,20 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/context/AuthContext';
 import Logo from './Logo';
 import AuthForm from '@/components/AuthForm';
 
-interface LoginPageProps {
-  onLogin: (user: any) => void;
-  onBack: () => void;
-}
-
-export default function LoginPage({ onLogin, onBack }: LoginPageProps) {
+export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const router = useRouter();
+  const { user } = useAuth();
 
-  const handleSuccess = (user: any) => {
-    onLogin(user);
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'admin') router.push('/admin');
+      else if (user.role === 'doctor') router.push('/doctor');
+      else if (user.role === 'therapist') router.push('/therapist');
+      else router.push('/patient');
+    }
+  }, [user, router]);
+
+  const handleSuccess = () => {
+    // Navigation handled by useEffect on auth change
+  };
+
+  const handleBack = () => {
+    router.push('/');
   };
 
   return (
@@ -34,7 +46,7 @@ export default function LoginPage({ onLogin, onBack }: LoginPageProps) {
             mode={mode}
             onSuccess={handleSuccess}
             onSwitchMode={() => setMode(mode === 'login' ? 'signup' : 'login')}
-            onBack={onBack}
+            onBack={handleBack}
           />
         </motion.div>
       </main>

@@ -1,30 +1,60 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Users, UserCheck, Shield, ArrowRight, X, Check, Clock, FileText, QrCode, XCircle, PartyPopper } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, updateDoc, doc, addDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { User } from '@/types';
+import { useAuth } from '@/context/AuthContext';
 import CounterAnimation from './CounterAnimation';
 import MedicalEmptyState from './MedicalEmptyState';
 import RoleBasedQuotes from './RoleBasedQuotes';
 import AnalyticsSuite from './AnalyticsSuite';
 import PremiumCard from './PremiumCard';
 
-interface AdminDashboardProps {
-  users: User[];
-  onAssignRole: (userId: string, role: 'patient' | 'doctor' | 'therapist') => void;
-  onLogout: () => void;
-}
-
-export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminDashboardProps) {
+export default function AdminDashboard() {
+  const { logout } = useAuth();
+  const router = useRouter();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [users, setUsers] = useState<User[]>([]);
   const [doctors, setDoctors] = useState<User[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
   const [feeInputs, setFeeInputs] = useState<Record<string, string>>({});
   const [sessionInputs, setSessionInputs] = useState<Record<string, string>>({});
   const [membershipRequests, setMembershipRequests] = useState<any[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const fetchedUsers: User[] = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          role: data.role || 'patient',
+          avatar: data.avatar,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          status: data.status,
+          assignedDoctorId: data.assignedDoctorId,
+          assignedDoctorName: data.assignedDoctorName,
+          isMember: data.isMember,
+          membershipStatus: data.membershipStatus,
+          membershipType: data.membershipType,
+          totalFees: data.totalFees,
+          membershipRequestDate: data.membershipRequestDate?.toDate(),
+          submittedTrxID: data.submittedTrxID,
+          profileCompleted: data.profileCompleted,
+          doctorProfile: data.doctorProfile,
+        };
+      });
+      setUsers(fetchedUsers);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const doctorList = users.filter(u => u.role === 'doctor');
@@ -44,6 +74,14 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
     });
     return () => unsubscribe();
   }, []);
+
+  const handleAssignRole = async (userId: string, role: 'patient' | 'doctor' | 'therapist') => {
+    try {
+      await updateDoc(doc(db, 'users', userId), { role });
+    } catch (err) {
+      console.error('Error assigning role:', err);
+    }
+  };
 
   const patients = users.filter(u => u.role === 'patient');
   const unassignedPatients = patients.filter(u => u.status !== 'assigned');
@@ -195,7 +233,7 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={onLogout}
+            onClick={() => { logout(); router.push('/'); }}
             className="glass-button secondary flex items-center gap-2"
           >
             <span>Sign Out</span>
@@ -243,11 +281,11 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
 
          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
            {[
-             { label: 'Patients', value: patients.length, icon: <Users className="w-5 h-5" />, color: 'blue', backgroundType: 'medical' },
-             { label: 'Doctors', value: doctors.length, icon: <UserCheck className="w-5 h-5" />, color: 'red', backgroundType: 'clinical' },
-             { label: 'Unassigned', value: unassignedPatients.length, icon: <Clock className="w-5 h-5" />, color: 'amber', backgroundType: 'medical' },
-             { label: 'Pending', value: membershipRequests.length, icon: <FileText className="w-5 h-5" />, color: 'purple', backgroundType: 'document' },
-             { label: 'Scan QR', value: '', icon: <QrCode className="w-5 h-5" />, color: 'sky', backgroundType: 'clinical', placeholder: true },
+             { label: 'Patients', value: patients.length, icon: <Users className="w-5 h-5" />, color: 'blue', accent: 'from-sky-500 to-blue-600', backgroundType: 'medical' },
+             { label: 'Doctors', value: doctors.length, icon: <UserCheck className="w-5 h-5" />, color: 'red', accent: 'from-red-500 to-orange-500', backgroundType: 'clinical' },
+             { label: 'Unassigned', value: unassignedPatients.length, icon: <Clock className="w-5 h-5" />, color: 'amber', accent: 'from-amber-400 to-orange-400', backgroundType: 'medical' },
+             { label: 'Pending', value: membershipRequests.length, icon: <FileText className="w-5 h-5" />, color: 'purple', accent: 'from-purple-500 to-fuchsia-500', backgroundType: 'document' },
+             { label: 'Scan QR', value: '', icon: <QrCode className="w-5 h-5" />, color: 'sky', accent: 'from-sky-400 to-cyan-500', backgroundType: 'clinical', placeholder: true },
            ].map((stat, index) => (
              <PremiumCard
                key={stat.label}
@@ -501,7 +539,7 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
                         <span className="text-slate-400 text-xs">{patient.membershipType || 'Custom'}</span>
                       </div>
                       {/* Priority Warning Badge for Low Sessions */}
-                      {patient.totalSessions > 0 && (patient.totalSessions - (patient.completedSessions || 0)) <= 2 && (
+                      {(patient.totalSessions || 0) > 0 && ((patient.totalSessions || 0) - (patient.completedSessions || 0)) <= 2 && (
                         <motion.div
                           initial={{ opacity: 0, y: -10 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -510,7 +548,7 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
                           <div className="flex items-center gap-2">
                             <div className="w-4 h-4 rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 animate-pulse" />
                             <span className="text-xs font-bold text-amber-400 uppercase tracking-wide">
-                              Priority: Only {patient.totalSessions - (patient.completedSessions || 0)} session{patient.totalSessions - (patient.completedSessions || 0) > 1 ? 's' : ''} remaining!
+                              Priority: Only {((patient.totalSessions || 0) - (patient.completedSessions || 0))} session{((patient.totalSessions || 0) - (patient.completedSessions || 0)) > 1 ? 's' : ''} remaining!
                             </span>
                           </div>
                         </motion.div>
@@ -612,7 +650,7 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
                            onChange={(e) => {
                              const role = e.target.value;
                              if (role !== 'patient') {
-                               onAssignRole(user.id, role as 'doctor' | 'patient' | 'therapist');
+                               handleAssignRole(user.id, role as 'doctor' | 'patient' | 'therapist');
                              }
                            }}
                           className="bg-slate-800/50 text-white px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"

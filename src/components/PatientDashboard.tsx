@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, Dumbbell, CreditCard, TrendingUp, LogOut, UserCheck, FileText, Upload, Image, File, Copy, Check, Sparkles, Crown, UserPlus, X } from 'lucide-react';
 import { User, PatientView } from '@/types';
+import { useAuth } from '@/context/AuthContext';
 import Logo from './Logo';
 import PatientOverview from './PatientOverview';
 import PatientExercises from './PatientExercises';
@@ -21,7 +23,6 @@ import PremiumCard from './PremiumCard';
 
 interface PatientDashboardProps {
   user: User;
-  onLogout: () => void;
 }
 
 const navItems: { id: PatientView; label: string; icon: React.ReactNode }[] = [
@@ -45,8 +46,8 @@ const staggerContainer = {
 
 const slideUpVariant = {
   hidden: { opacity: 0, y: 20 },
-  visible: { 
-    opacity: 1, 
+  visible: {
+    opacity: 1,
     y: 0,
     transition: {
       type: 'spring',
@@ -56,8 +57,11 @@ const slideUpVariant = {
   },
 };
 
-export default function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
-  const [activeView, setActiveView] = useState<PatientView>('overview');
+export default function PatientDashboard({ user }: PatientDashboardProps) {
+  const { logout } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeView = (searchParams.get('view') as PatientView) || 'overview';
   const [reports, setReports] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
@@ -85,7 +89,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
     });
   }, [user]);
 
-const getPlanBadge = (amount?: number) => {
+  const getPlanBadge = (amount?: number) => {
     if (!amount || amount === 0) return null;
     if (amount >= 3000 && amount <= 7000) {
       return { label: 'Silver', color: 'bg-slate-400 text-white' };
@@ -97,45 +101,45 @@ const getPlanBadge = (amount?: number) => {
     return null;
   };
 
-   const [freshUserData, setFreshUserData] = useState<User | null>(null);
-   
-    // Computed variables for UI state
-    const isAssigned = !!freshUserData?.assignedTherapistName;
-    const isMember = freshUserData?.isMember && freshUserData?.membershipStatus === 'active';
-    const isPendingApproval = freshUserData?.membershipStatus === 'pendingApproval';
-    const isProfileComplete = freshUserData?.profileCompleted && freshUserData?.patientProfile?.age;
+  const [freshUserData, setFreshUserData] = useState<User | null>(null);
 
-   useEffect(() => {
-     if (user?.id) {
-       setReports(user?.reports || []);
-       const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
-         if (docSnap.exists()) {
-           const data = docSnap.data() as User;
-           setReports(data?.reports || []);
-           setFreshUserData(data); // Update fresh user data from Firestore
-           
-           // Also update local state fields for immediate use
-           setProfileImage(data?.patientProfile?.profilePicture || data?.avatar || '');
-           setProfileData({
-             age: data?.patientProfile?.age || '',
-             gender: data?.patientProfile?.gender || '',
-             medicalHistory: data?.patientProfile?.medicalHistory || '',
-           });
-         }
-       });
-       return () => unsubscribe();
-     }
-   }, [user?.id]);
-   
-   // Keep local state in sync with incoming user prop (for initial load)
-   useEffect(() => {
-     setProfileImage(user?.patientProfile?.profilePicture || user?.avatar || '');
-     setProfileData({
-       age: user?.patientProfile?.age || '',
-       gender: user?.patientProfile?.gender || '',
-       medicalHistory: user?.patientProfile?.medicalHistory || '',
-     });
-   }, [user]);
+  // Computed variables for UI state
+  const isAssigned = !!freshUserData?.assignedTherapistName;
+  const isMember = freshUserData?.isMember && freshUserData?.membershipStatus === 'active';
+  const isPendingApproval = freshUserData?.membershipStatus === 'pendingApproval';
+  const isProfileComplete = freshUserData?.profileCompleted && freshUserData?.patientProfile?.age;
+
+  useEffect(() => {
+    if (user?.id) {
+      setReports(user?.reports || []);
+      const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data() as User;
+          setReports(data?.reports || []);
+          setFreshUserData(data); // Update fresh user data from Firestore
+
+          // Also update local state fields for immediate use
+          setProfileImage(data?.patientProfile?.profilePicture || data?.avatar || '');
+          setProfileData({
+            age: data?.patientProfile?.age || '',
+            gender: data?.patientProfile?.gender || '',
+            medicalHistory: data?.patientProfile?.medicalHistory || '',
+          });
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [user?.id]);
+
+  // Keep local state in sync with incoming user prop (for initial load)
+  useEffect(() => {
+    setProfileImage(user?.patientProfile?.profilePicture || user?.avatar || '');
+    setProfileData({
+      age: user?.patientProfile?.age || '',
+      gender: user?.patientProfile?.gender || '',
+      medicalHistory: user?.patientProfile?.medicalHistory || '',
+    });
+  }, [user]);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -152,13 +156,13 @@ const getPlanBadge = (amount?: number) => {
       console.log('Upload Error: No file or user ID');
       return;
     }
-    
+
     console.log('Processing file:', file.name, file.size, file.type);
     setUploading(true);
     try {
       const base64 = await fileToBase64(file);
       console.log('File converted to Base64, length:', base64.length);
-      
+
       const fileType = file.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'image';
       const newReport = {
         fileName: file.name,
@@ -166,7 +170,7 @@ const getPlanBadge = (amount?: number) => {
         fileType,
         uploadedAt: new Date()
       };
-      
+
       console.log('Saving to Firestore reports array...');
       const currentReports = user?.reports || [];
       await updateDoc(doc(db, 'users', user.id), {
@@ -182,41 +186,41 @@ const getPlanBadge = (amount?: number) => {
   };
 
   const handleSubmitMembershipRequest = async () => {
-     if (!trxId.trim() || !user?.id) return;
-     
-     setSubmitting(true);
-     try {
-       // Create a membership request document in Firestore
-       const requestDoc = {
-         patientId: user.id,
-         patientName: user.name,
-         patientEmail: user.email,
-         transactionId: trxId.trim(),
-         status: 'pending' as const,
-         requestDate: new Date(),
-         createdAt: new Date()
-       };
-       
-       await addDoc(collection(db, 'membershipRequests'), requestDoc);
-       
-       // Also update user document for backwards compatibility and quick lookup
-       await updateDoc(doc(db, 'users', user.id), {
-         membershipStatus: 'pendingApproval',
-         submittedTrxID: trxId.trim(),
-         membershipRequestDate: new Date()
-       });
-       
-       setRequestSent(true);
-       setTimeout(() => {
-         setShowMembershipModal(false);
-         setRequestSent(false);
-         setTrxId('');
-       }, 2000);
-     } catch (err) {
-       console.error('Error submitting membership request:', err);
-     }
-     setSubmitting(false);
-   };
+    if (!trxId.trim() || !user?.id) return;
+
+    setSubmitting(true);
+    try {
+      // Create a membership request document in Firestore
+      const requestDoc = {
+        patientId: user.id,
+        patientName: user.name,
+        patientEmail: user.email,
+        transactionId: trxId.trim(),
+        status: 'pending' as const,
+        requestDate: new Date(),
+        createdAt: new Date()
+      };
+
+      await addDoc(collection(db, 'membershipRequests'), requestDoc);
+
+      // Also update user document for backwards compatibility and quick lookup
+      await updateDoc(doc(db, 'users', user.id), {
+        membershipStatus: 'pendingApproval',
+        submittedTrxID: trxId.trim(),
+        membershipRequestDate: new Date()
+      });
+
+      setRequestSent(true);
+      setTimeout(() => {
+        setShowMembershipModal(false);
+        setRequestSent(false);
+        setTrxId('');
+      }, 2000);
+    } catch (err) {
+      console.error('Error submitting membership request:', err);
+    }
+    setSubmitting(false);
+  };
 
   const copyToClipboard = () => {
     navigator.clipboard.writeText('0000-0000-0000');
@@ -248,13 +252,13 @@ const getPlanBadge = (amount?: number) => {
       console.error('Error saving profile:', err);
     }
     setSavingProfile(false);
-   };
+  };
 
-   const renderContent = () => {
+  const renderContent = () => {
     switch (activeView) {
       case 'overview':
         return (
-<motion.div
+          <motion.div
             variants={staggerContainer}
             initial="hidden"
             animate="visible"
@@ -272,7 +276,7 @@ const getPlanBadge = (amount?: number) => {
                 <span>Complete Your Profile</span>
               </motion.button>
             )}
-            
+
             <motion.div variants={slideUpVariant}>
               <SmartGreeting name={user.name} />
             </motion.div>
@@ -281,80 +285,80 @@ const getPlanBadge = (amount?: number) => {
               <DailyTip />
             </motion.div>
 
-                <motion.div variants={slideUpVariant}>
-                  <PremiumCard
-                    backgroundImage="https://images.unsplash.com/photo-1586983690570-5c6ddc6d9c68?w=800&q=80"
-                    className="document"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-rose-600 to-crimson-700 flex items-center justify-center shadow-lg shadow-rose-900/30">
-                          <FileText className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-white drop-shadow-lg">Medical Reports</h3>
-                          <p className="text-rose-400 text-xs">Upload PDF, X-rays, MRI reports</p>
-                        </div>
-                      </div>
+            <motion.div variants={slideUpVariant}>
+              <PremiumCard
+                backgroundImage="https://images.unsplash.com/photo-1586983690570-5c6ddc6d9c68?w=800&q=80"
+                className="document"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-rose-600 to-crimson-700 flex items-center justify-center shadow-lg shadow-rose-900/30">
+                      <FileText className="w-6 h-6 text-white" />
                     </div>
-                    <label className="flex items-center justify-center w-full p-6 border-2 border-dashed border-rose-500/30 rounded-xl cursor-pointer hover:border-rose-500 hover:bg-rose-500/10 transition-all group">
-                      <input 
-                        type="file" 
-                        accept="image/*,.pdf" 
-                        onChange={handleUpload} 
-                        className="hidden" 
-                        disabled={uploading} 
-                      />
-                      <div className="text-center">
-                        {uploading ? (
-                          <>
-                            <div className="w-8 h-8 mx-auto mb-2 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
-                            <p className="text-rose-300 font-medium">Uploading...</p>
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="w-10 h-10 mx-auto mb-2 text-rose-400 group-hover:text-rose-300 transition-colors" />
-                            <p className="text-rose-200 font-medium">Tap to Upload Report</p>
-                            <p className="text-slate-500 text-xs mt-1">PDF, JPG, PNG (Max 10MB)</p>
-                          </>
-                        )}
-                      </div>
-                    </label>
-                    
-                    {/* Recent reports list */}
-                    {reports.length > 0 && (
-                      <div className="mt-6 space-y-2">
-                        <p className="text-slate-400 text-sm mb-2">Recent Uploads:</p>
-                        {reports.slice(-3).reverse().map((report) => (
-                          <div 
-                            key={Math.random()}
-                            className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 cursor-pointer hover:border-rose-500/30 transition-all"
-                            onClick={() => setSelectedReport({
-                              fileUrl: report.fileUrl,
-                              fileName: report.fileName,
-                              fileType: report.fileType
-                            })}
-                          >
-                            <div className="flex items-center gap-2">
-                              {report.fileType === 'image' ? (
-                                <Image className="w-4 h-4 text-primary" />
-                              ) : (
-                                <File className="w-4 h-4 text-red-400" />
-                              )}
-                              <span className="text-white text-sm truncate max-w-[200px]">{report.fileName}</span>
-                            </div>
-                            <span className="text-rose-400 text-xs">View</span>
-                          </div>
-                        ))}
-                      </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-white drop-shadow-lg">Medical Reports</h3>
+                      <p className="text-rose-400 text-xs">Upload PDF, X-rays, MRI reports</p>
+                    </div>
+                  </div>
+                </div>
+                <label className="flex items-center justify-center w-full p-6 border-2 border-dashed border-rose-500/30 rounded-xl cursor-pointer hover:border-rose-500 hover:bg-rose-500/10 transition-all group">
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    onChange={handleUpload}
+                    className="hidden"
+                    disabled={uploading}
+                  />
+                  <div className="text-center">
+                    {uploading ? (
+                      <>
+                        <div className="w-8 h-8 mx-auto mb-2 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+                        <p className="text-rose-300 font-medium">Uploading...</p>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-10 h-10 mx-auto mb-2 text-rose-400 group-hover:text-rose-300 transition-colors" />
+                        <p className="text-rose-200 font-medium">Tap to Upload Report</p>
+                        <p className="text-slate-500 text-xs mt-1">PDF, JPG, PNG (Max 10MB)</p>
+                      </>
                     )}
-                  </PremiumCard>
-                </motion.div>
+                  </div>
+                </label>
+
+                {/* Recent reports list */}
+                {reports.length > 0 && (
+                  <div className="mt-6 space-y-2">
+                    <p className="text-slate-400 text-sm mb-2">Recent Uploads:</p>
+                    {reports.slice(-3).reverse().map((report) => (
+                      <div
+                        key={Math.random()}
+                        className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 cursor-pointer hover:border-rose-500/30 transition-all"
+                        onClick={() => setSelectedReport({
+                          fileUrl: report.fileUrl,
+                          fileName: report.fileName,
+                          fileType: report.fileType
+                        })}
+                      >
+                        <div className="flex items-center gap-2">
+                          {report.fileType === 'image' ? (
+                            <Image className="w-4 h-4 text-primary" />
+                          ) : (
+                            <File className="w-4 h-4 text-red-400" />
+                          )}
+                          <span className="text-white text-sm truncate max-w-[200px]">{report.fileName}</span>
+                        </div>
+                        <span className="text-rose-400 text-xs">View</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </PremiumCard>
+            </motion.div>
 
             <motion.div variants={slideUpVariant}>
-              <PatientOverview 
-                user={user} 
-                onUpgradeClick={() => setShowMembershipModal(true)} 
+              <PatientOverview
+                user={user}
+                onUpgradeClick={() => setShowMembershipModal(true)}
                 isMember={isMember}
                 isPendingApproval={isPendingApproval}
               />
@@ -403,7 +407,7 @@ const getPlanBadge = (amount?: number) => {
                 </div>
               </label>
             </motion.div>
-            
+
             <motion.div variants={slideUpVariant} className="glass-card-interactive p-6">
               <h2 className="text-xl font-semibold text-white mb-4">Your Reports</h2>
               {reports.length > 0 ? (
@@ -460,16 +464,16 @@ const getPlanBadge = (amount?: number) => {
       {/* Header */}
       <header className="glass-card border-t-0 border-x-0 rounded-none px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Logo width={120} height={36} showTagline={false} className="cursor-pointer" onClick={() => setActiveView('overview')} />
+          <Logo width={120} height={36} showTagline={false} className="cursor-pointer" onClick={() => router.push('/patient?view=overview')} />
         </div>
-        
+
         <h1 className="text-xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
           {navItems.find(i => i.id === activeView)?.label}
         </h1>
 
         <div className="flex items-center gap-2">
-          <button 
-            onClick={onLogout}
+          <button
+            onClick={() => { logout(); router.push('/'); }}
             className="p-2 hover:bg-red-500/10 hover:scale-[1.02] hover:shadow-crimson-glow rounded-lg group transition-all"
             title="Logout"
           >
@@ -478,126 +482,126 @@ const getPlanBadge = (amount?: number) => {
         </div>
       </header>
 
-       {/* Main Content - Centered */}
-       <div className="w-full max-w-6xl mx-auto px-4 py-8">
-{/* Care Journey Card - Assigned Status */}
-          {isAssigned ? (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              whileHover={{ scale: 1.02 }}
-              transition={{ duration: 0.3 }}
-              className="mt-4 mb-6 glass-card-interactive p-6 rounded-2xl relative overflow-hidden group"
-            >
-              {/* Gradient glow effect */}
-              <div className="absolute -inset-10 bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-emerald-500/20 blur-3xl opacity-50 group-hover:opacity-70 transition-opacity" />
-              
-              <div className="relative z-10 flex flex-col items-center text-center">
-                {/* Live Indicator */}
-                <div className="flex items-center gap-2 mb-3">
-                  <motion.div
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ repeat: Infinity, duration: 2 }}
-                    className="w-3 h-3 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50"
-                  />
-                  <span className="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Live Assignment</span>
-                </div>
-                
-                <h3 className="text-2xl font-bold text-white mb-2">
-                  Your Care Team is Ready
-                </h3>
-                
-                <motion.p
-                  animate={{ opacity: [0.8, 1, 0.8] }}
-                  transition={{ repeat: Infinity, duration: 3 }}
-                  className="text-slate-300 text-sm mb-6"
+      {/* Main Content - Centered */}
+      <div className="w-full max-w-6xl mx-auto px-4 py-8">
+        {/* Care Journey Card - Assigned Status */}
+        {isAssigned ? (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.02 }}
+            transition={{ duration: 0.3 }}
+            className="mt-4 mb-6 glass-card-interactive p-6 rounded-2xl relative overflow-hidden group"
+          >
+            {/* Gradient glow effect */}
+            <div className="absolute -inset-10 bg-gradient-to-r from-emerald-500/20 via-cyan-500/20 to-emerald-500/20 blur-3xl opacity-50 group-hover:opacity-70 transition-opacity" />
+
+            <div className="relative z-10 flex flex-col items-center text-center">
+              {/* Live Indicator */}
+              <div className="flex items-center gap-2 mb-3">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ repeat: Infinity, duration: 2 }}
+                  className="w-3 h-3 rounded-full bg-emerald-400 shadow-lg shadow-emerald-400/50"
+                />
+                <span className="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Live Assignment</span>
+              </div>
+
+              <h3 className="text-2xl font-bold text-white mb-2">
+                Your Care Team is Ready
+              </h3>
+
+              <motion.p
+                animate={{ opacity: [0.8, 1, 0.8] }}
+                transition={{ repeat: Infinity, duration: 3 }}
+                className="text-slate-300 text-sm mb-6"
+              >
+                {freshUserData?.assignedDoctorName ? `Dr. ${freshUserData.assignedDoctorName} has successfully assigned ` : 'We have '}
+                <motion.span
+                  animate={{ color: ['#34d399', '#06b6d4', '#34d399'] }}
+                  transition={{ repeat: Infinity, duration: 2 }}
+                  className="font-semibold text-cyan-400"
                 >
-                  {freshUserData?.assignedDoctorName ? `Dr. ${freshUserData.assignedDoctorName} has successfully assigned ` : 'We have ' }
-                  <motion.span
-                    animate={{ color: ['#34d399', '#06b6d4', '#34d399'] }}
-                    transition={{ repeat: Infinity, duration: 2 }}
-                    className="font-semibold text-cyan-400"
-                  >
-                    {freshUserData?.assignedTherapistName}
-                  </motion.span>
-                  {freshUserData?.assignedDoctorName ? ' for your session.' : ' your assigned physiotherapist.'}
-                </motion.p>
-                
-                {/* Assignment Flow Icons */}
-                <div className="flex items-center justify-center gap-6 mb-4">
-                  {/* Doctor Icon */}
-                  <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a2 2 0 11-4 0 2 2 0 014 0zM6 11a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                    </div>
-                    <p className="text-slate-400 text-xs mt-1">{freshUserData?.assignedDoctorName ? `Dr. ${freshUserData.assignedDoctorName}` : 'Doctor'}</p>
+                  {freshUserData?.assignedTherapistName}
+                </motion.span>
+                {freshUserData?.assignedDoctorName ? ' for your session.' : ' your assigned physiotherapist.'}
+              </motion.p>
+
+              {/* Assignment Flow Icons */}
+              <div className="flex items-center justify-center gap-6 mb-4">
+                {/* Doctor Icon */}
+                <div className="flex flex-col items-center">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a2 2 0 11-4 0 2 2 0 014 0zM6 11a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
                   </div>
-                  
-                  {/* Flow Animation */}
-                  <div className="flex items-center">
-                    <div className="relative w-16 h-6">
-                      {/* Dotted line */}
-                      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-600" />
-                      {/* Animated dots */}
-                      <motion.div
-                        animate={{ x: ['0%', '300%'] }}
-                        transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
-                        className="absolute top-1/2 w-2 h-2 bg-cyan-400 rounded-full shadow-lg shadow-cyan-400/50 -mt-1"
-                      />
-                    </div>
+                  <p className="text-slate-400 text-xs mt-1">{freshUserData?.assignedDoctorName ? `Dr. ${freshUserData.assignedDoctorName}` : 'Doctor'}</p>
+                </div>
+
+                {/* Flow Animation */}
+                <div className="flex items-center">
+                  <div className="relative w-16 h-6">
+                    {/* Dotted line */}
+                    <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-600" />
+                    {/* Animated dots */}
+                    <motion.div
+                      animate={{ x: ['0%', '300%'] }}
+                      transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                      className="absolute top-1/2 w-2 h-2 bg-cyan-400 rounded-full shadow-lg shadow-cyan-400/50 -mt-1"
+                    />
                   </div>
-                  
-                  {/* Patient Icon */}
-                  <div className="flex flex-col items-center">
-                    <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border-2 border-rose-400/60">
-                      <UserCheck className="w-5 h-5 text-rose-400" />
-                    </div>
-                    <p className="text-slate-400 text-xs mt-1">You</p>
+                </div>
+
+                {/* Patient Icon */}
+                <div className="flex flex-col items-center">
+                  <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border-2 border-rose-400/60">
+                    <UserCheck className="w-5 h-5 text-rose-400" />
                   </div>
-                  
-                  {/* Flow Animation */}
-                  <div className="flex items-center">
-                    <div className="relative w-16 h-6">
-                      {/* Dotted line */}
-                      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-600" />
-                      {/* Animated dots */}
-                      <motion.div
-                        animate={{ x: ['0%', '300%'] }}
-                        transition={{ repeat: Infinity, duration: 1.5, ease: 'linear', delay: 0.5 }}
-                        className="absolute top-1/2 w-2 h-2 bg-emerald-400 rounded-full shadow-lg shadow-emerald-400/50 -mt-1"
-                      />
-                    </div>
+                  <p className="text-slate-400 text-xs mt-1">You</p>
+                </div>
+
+                {/* Flow Animation */}
+                <div className="flex items-center">
+                  <div className="relative w-16 h-6">
+                    {/* Dotted line */}
+                    <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-600" />
+                    {/* Animated dots */}
+                    <motion.div
+                      animate={{ x: ['0%', '300%'] }}
+                      transition={{ repeat: Infinity, duration: 1.5, ease: 'linear', delay: 0.5 }}
+                      className="absolute top-1/2 w-2 h-2 bg-emerald-400 rounded-full shadow-lg shadow-emerald-400/50 -mt-1"
+                    />
                   </div>
-                  
-                  {/* Therapist Icon */}
-                  <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
-                      <UserCheck className="w-6 h-6 text-white" />
-                    </div>
-                    <p className="text-slate-400 text-xs mt-1">{freshUserData?.assignedTherapistName || 'Therapist'}</p>
+                </div>
+
+                {/* Therapist Icon */}
+                <div className="flex flex-col items-center">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                    <UserCheck className="w-6 h-6 text-white" />
                   </div>
+                  <p className="text-slate-400 text-xs mt-1">{freshUserData?.assignedTherapistName || 'Therapist'}</p>
                 </div>
               </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-4 mb-6 glass-card p-4 bg-amber-500/5 border border-amber-500/20"
-            >
-              <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center border-2 border-rose-400/60">
-                  <UserCheck className="w-5 h-5 text-amber-500" />
-                </div>
-                <div>
-                  <p className="text-amber-500 font-semibold uppercase text-xs tracking-widest">Status: Queue</p>
-                  <p className="text-slate-400 text-sm">Assigning a physiotherapist shortly...</p>
-                </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-4 mb-6 glass-card p-4 bg-amber-500/5 border border-amber-500/20"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center border-2 border-rose-400/60">
+                <UserCheck className="w-5 h-5 text-amber-500" />
               </div>
-            </motion.div>
-          )}
+              <div>
+                <p className="text-amber-500 font-semibold uppercase text-xs tracking-widest">Status: Queue</p>
+                <p className="text-slate-400 text-sm">Assigning a physiotherapist shortly...</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Role-Based Quotes Section */}
         <section className="py-10 px-4">
@@ -646,44 +650,44 @@ const getPlanBadge = (amount?: number) => {
                 <X className="w-5 h-5 text-slate-400" />
               </button>
 
-                {requestSent ? (
+              {requestSent ? (
+                <motion.div
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-center py-8"
+                >
                   <motion.div
-                    initial={{ scale: 0.5, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="text-center py-8"
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: 'spring', stiffness: 200, damping: 10 }}
+                    className="w-20 h-20 mx-auto mb-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30"
                   >
-                    <motion.div
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ type: 'spring', stiffness: 200, damping: 10 }}
-                      className="w-20 h-20 mx-auto mb-6 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30"
-                    >
-                      <Check className="w-10 h-10 text-white" />
-                    </motion.div>
-                    <motion.h2
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: 0.2 }}
-                      className="text-2xl font-bold text-white mb-2"
-                    >
-                      Payment Successful!
-                    </motion.h2>
-                    <motion.p
-                      initial={{ y: 20, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      transition={{ delay: 0.3 }}
-                      className="text-slate-400"
-                    >
-                      Waiting for Admin Approval
-                    </motion.p>
-                    <motion.div
-                      initial={{ scale: [1, 1.2, 1] }}
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-                      className="w-4 h-4 mx-auto mt-4 rounded-full bg-emerald-400"
-                    />
+                    <Check className="w-10 h-10 text-white" />
                   </motion.div>
-                ) : (
+                  <motion.h2
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="text-2xl font-bold text-white mb-2"
+                  >
+                    Payment Successful!
+                  </motion.h2>
+                  <motion.p
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-slate-400"
+                  >
+                    Waiting for Admin Approval
+                  </motion.p>
+                  <motion.div
+                    initial={{ scale: 1 }}
+                    animate={{ scale: 1.2 }}
+                    transition={{ repeat: Infinity, repeatType: 'reverse', duration: 2, ease: 'easeInOut' }}
+                    className="w-4 h-4 mx-auto mt-4 rounded-full bg-emerald-400"
+                  />
+                </motion.div>
+              ) : (
                 <>
                   <div className="text-center mb-6">
                     <motion.div
@@ -696,67 +700,67 @@ const getPlanBadge = (amount?: number) => {
                     <h2 className="text-2xl font-bold text-gradient">Join the Elite Membership Program</h2>
                   </div>
 
-                   <p className="text-slate-400 text-sm mb-4">
-                     To activate your membership, please pay the fees via the methods below:
-                   </p>
+                  <p className="text-slate-400 text-sm mb-4">
+                    To activate your membership, please pay the fees via the methods below:
+                  </p>
 
-                   {/* Bank Transfer Section */}
-                   <div className="glass-card p-4 rounded-xl mb-4">
-                     <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                       <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                       </svg>
-                       Bank Transfer
-                     </h4>
-                     <div className="space-y-3">
-                       <div className="flex items-center justify-between">
-                         <span className="text-slate-400 text-sm">Bank Name</span>
-                         <span className="text-white font-medium">National Bank</span>
-                       </div>
-                       <div className="flex items-center justify-between">
-                         <span className="text-slate-400 text-sm">Account Number</span>
-                         <div className="flex items-center gap-2">
-                           <span className="text-white font-mono">0000-0000-0000</span>
-                           <button
-                             onClick={copyToClipboard}
-                             className="p-1 hover:bg-white/10 hover:scale-[1.02] hover:shadow-crimson-glow rounded transition-colors"
-                           >
-                             {copied ? (
-                               <Check className="w-4 h-4 text-emerald-400" />
-                             ) : (
-                               <Copy className="w-4 h-4 text-slate-400" />
-                             )}
-                           </button>
-                         </div>
-                       </div>
-                       <div className="flex items-center justify-between">
-                         <span className="text-slate-400 text-sm">Account Title</span>
-                         <span className="text-white font-medium">Physio Clinic</span>
-                       </div>
-                     </div>
-                   </div>
-
-                   {/* Digital Payment Section */}
-                   <div className="glass-card p-4 rounded-xl mb-4">
-                     <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
-                       <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                       </svg>
-                       EasyPaisa / JazzCash
-                     </h4>
-                     <div className="space-y-3">
-                       <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                         <span className="text-slate-400 text-sm">EasyPaisa Number</span>
-                         <span className="text-white font-mono">0300-1234567</span>
-                       </div>
-                       <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                         <span className="text-slate-400 text-sm">JazzCash Number</span>
-                         <span className="text-white font-mono">0333-1234567</span>
-                       </div>
+                  {/* Bank Transfer Section */}
+                  <div className="glass-card p-4 rounded-xl mb-4">
+                    <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                      Bank Transfer
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-sm">Bank Name</span>
+                        <span className="text-white font-medium">National Bank</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-sm">Account Number</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-mono">0000-0000-0000</span>
+                          <button
+                            onClick={copyToClipboard}
+                            className="p-1 hover:bg-white/10 hover:scale-[1.02] hover:shadow-crimson-glow rounded transition-colors"
+                          >
+                            {copied ? (
+                              <Check className="w-4 h-4 text-emerald-400" />
+                            ) : (
+                              <Copy className="w-4 h-4 text-slate-400" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 text-sm">Account Title</span>
+                        <span className="text-white font-medium">Physio Clinic</span>
                       </div>
                     </div>
+                  </div>
 
-                   <div className="mb-6">
+                  {/* Digital Payment Section */}
+                  <div className="glass-card p-4 rounded-xl mb-4">
+                    <h4 className="text-white font-semibold mb-3 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      EasyPaisa / JazzCash
+                    </h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                        <span className="text-slate-400 text-sm">EasyPaisa Number</span>
+                        <span className="text-white font-mono">0300-1234567</span>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                        <span className="text-slate-400 text-sm">JazzCash Number</span>
+                        <span className="text-white font-mono">0333-1234567</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
                     <label className="text-slate-400 text-sm mb-2 block">Enter Receipt Number or Transaction ID</label>
                     <input
                       type="text"

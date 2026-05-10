@@ -1,29 +1,32 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, useScroll, useTransform, useInView, AnimatePresence } from 'framer-motion';
-import { Heart, Dumbbell, ArrowRight, CheckCircle, Clock, Calendar, X, UserCircle, Award, CalendarCheck, Sparkles } from 'lucide-react';
+import { Heart, Dumbbell, ArrowRight, CheckCircle, Clock, Calendar, X, UserCircle, Award, CalendarCheck, Sparkles, Link } from 'lucide-react';
 import Logo from './Logo';
 import PremiumImageCarousel from './PremiumImageCarousel';
 import RoleBasedQuotes from './RoleBasedQuotes';
 import { servicesData, heroCarouselImages } from '@/lib/servicesData';
-import Link from 'next/link';
 
 interface DoctorData {
   id: string;
   name: string;
   email: string;
   phone: string;
-  role: 'doctor';
-  avatar?: string;
-  profileCompleted?: boolean;
-  doctorProfile?: {
-    education?: string;
-    experience?: string;
-    specialization?: string;
-    availableDays?: string[];
-    timings?: string;
+  role: string;
+  profileCompleted: boolean;
+  doctorProfile: {
+    education: string;
+    experience: string;
+    specialization: string;
+    availableDays: string[];
+    timings: string;
   };
+}
+
+interface LandingPageProps {
+  doctors?: DoctorData[];
 }
 
 interface LandingPageProps {
@@ -150,9 +153,10 @@ function Section({ children, className }: SectionProps) {
 interface HeroSectionProps {
   onLogin: () => void;
   onSignup: () => void;
+  doctors?: DoctorData[];
 }
 
-function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps & { doctors?: DoctorData[] }) {
+function HeroSection({ onLogin, onSignup, doctors }: HeroSectionProps) {
   const ref = useRef(null);
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -529,13 +533,14 @@ function Footer() {
    );
 };
 
-export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageProps) {
+export default function LandingPage({ doctors }: LandingPageProps) {
+  const router = useRouter();
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorData | null>(null);
   const displayedDoctors = doctors && doctors.length > 0 ? doctors : DUMMY_DOCTORS;
 
   return (
     <div className="min-h-screen bg-slate-950">
-      <HeroSection onLogin={onLogin} onSignup={onSignup} doctors={displayedDoctors} />
+      <HeroSection onLogin={() => router.push('/login')} onSignup={() => router.push('/login')} doctors={displayedDoctors} />
 
        <ServicesSection />
        
@@ -546,7 +551,7 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
         <RoleBasedQuotes role="guest" />
       </Section>
 
-      <CTASection onSignup={onSignup} />
+      <CTASection onSignup={() => router.push('/login')} />
       <Section className="py-20 px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -678,7 +683,7 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     setSelectedDoctor(null);
-                    onSignup();
+                    router.push('/login');
                   }}
                   className="w-full py-4 bg-gradient-to-r from-rose-600 to-crimson-700 text-white font-bold rounded-2xl shadow-lg shadow-rose-900/30 border border-white/10 flex items-center justify-center gap-2"
                 >

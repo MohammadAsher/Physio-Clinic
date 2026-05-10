@@ -1,24 +1,26 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Users, Clock, Activity, CheckCircle, ChevronRight, X, 
+import {
+  Users, Clock, Activity, CheckCircle, ChevronRight, X,
   Calendar, MapPin, FileText, UserCircle, File, Image
 } from 'lucide-react';
 import { DoctorView, PatientReport } from '@/types';
 import { db } from '@/lib/firebase';
-import { 
-  doc, 
-  updateDoc, 
+import {
+  doc,
+  updateDoc,
   onSnapshot,
   arrayUnion,
   collection,
   query,
   where
 } from 'firebase/firestore';
+import { useAuth } from '@/context/AuthContext';
 import ImageUpload from './ImageUpload';
-import SmartGreeting from './SmartGreeting'; 
+import SmartGreeting from './SmartGreeting';
 import DailyTip from './DailyTip';
 import CounterAnimation from './CounterAnimation';
 import FileViewerModal from './FileViewerModal';
@@ -27,15 +29,14 @@ import RoleBasedQuotes from './RoleBasedQuotes';
 import PremiumCard from './PremiumCard';
 
 interface DoctorDashboardProps {
-  patients: any[]; 
-  onUpdatePatient: (patient: any) => void;
   user?: any;
-  onLogout?: () => void;
-  therapists?: any[];
 }
 
-export default function DoctorDashboard({ user, patients, onUpdatePatient, onLogout }: DoctorDashboardProps) {
+export default function DoctorDashboard({ user }: DoctorDashboardProps) {
+  const { logout } = useAuth();
+  const router = useRouter();
   const [activeView, setActiveView] = useState<DoctorView>('waiting');
+  const [patients, setPatients] = useState<any[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [selectedExercises, setSelectedExercises] = useState<any[]>([]);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
@@ -46,6 +47,19 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
 
   // Real-time therapist list
   const [therapists, setTherapists] = useState<any[]>([]);
+
+  // Fetch patients data
+  useEffect(() => {
+    const patientsQuery = query(collection(db, 'users'), where('role', '==', 'patient'));
+    const unsubscribe = onSnapshot(patientsQuery, (snapshot) => {
+      const fetchedPatients = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setPatients(fetchedPatients);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Fetch therapists data
   useEffect(() => {
@@ -240,7 +254,7 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
         </nav>
         
         <div className="relative p-4 border-t border-white/10">
-          <button onClick={onLogout} className="w-full py-3 text-slate-500 hover:text-rose-400 text-xs font-medium transition-colors">
+          <button onClick={() => { logout(); router.push('/'); }} className="w-full py-3 text-slate-500 hover:text-rose-400 text-xs font-medium transition-colors">
             Logout
           </button>
         </div>
