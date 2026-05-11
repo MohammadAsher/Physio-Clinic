@@ -25,6 +25,7 @@ import FileViewerModal from './FileViewerModal';
 import { EXERCISES } from '@/lib/data';
 import RoleBasedQuotes from './RoleBasedQuotes';
 import PremiumCard from './PremiumCard';
+import CustomDropdown from './CustomDropdown';
 
 interface DoctorDashboardProps {
   patients: any[]; 
@@ -522,15 +523,19 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                 </button>
               </div>
 
-              {/* Therapist Assignment */}
-              <div className="p-6 border-b border-white/5">
-                <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
-                  Assign to Therapist
-                </label>
-                <select
+               {/* Therapist Assignment */}
+               <div className="p-6 border-b border-white/5">
+                 <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-3 block">
+                   Assign to Therapist
+                 </label>
+                 <CustomDropdown
+                   options={therapists.map(t => ({
+                     id: t.id,
+                     name: t.name,
+                    avatar: t.profilePicture || t.avatar,
+                  }))}
                   value={selectedPatient?.assignedTherapistId || ''}
-                  onChange={(e) => {
-                    const therapistId = e.target.value;
+                  onChange={(therapistId) => {
                     const therapist = therapists.find(t => t.id === therapistId);
                     setSelectedPatient({
                       ...selectedPatient,
@@ -538,16 +543,9 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                       assignedTherapistName: therapist ? therapist.name : ''
                     });
                   }}
-                  className="glass-input w-full py-3 px-4 text-sm rounded-xl cursor-pointer"
-                >
-                  <option value="" className="bg-slate-900">Select a therapist...</option>
-                  {therapists.map((therapist) => (
-                    <option key={therapist.id} value={therapist.id} className="bg-slate-900">
-                      {therapist.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  placeholder="Select a therapist..."
+                />
+               </div>
 
               {/* Prescription / Clinical Notes */}
               <div className="p-6 border-b border-white/5">

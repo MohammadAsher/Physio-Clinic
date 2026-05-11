@@ -11,6 +11,7 @@ import MedicalEmptyState from './MedicalEmptyState';
 import RoleBasedQuotes from './RoleBasedQuotes';
 import AnalyticsSuite from './AnalyticsSuite';
 import PremiumCard from './PremiumCard';
+import CustomDropdown from './CustomDropdown';
 
 interface AdminDashboardProps {
   users: User[];
@@ -25,6 +26,7 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
   const [feeInputs, setFeeInputs] = useState<Record<string, string>>({});
   const [sessionInputs, setSessionInputs] = useState<Record<string, string>>({});
   const [membershipRequests, setMembershipRequests] = useState<any[]>([]);
+  const [doctorSelections, setDoctorSelections] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const doctorList = users.filter(u => u.role === 'doctor');
@@ -53,7 +55,10 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
   const handleAssignDoctor = async (patientId: string, doctorId: string) => {
     const doctor = doctors.find(d => d.id === doctorId);
     if (!doctor) return;
-    
+
+    // Update local state immediately for UI responsiveness
+    setDoctorSelections(prev => ({ ...prev, [patientId]: doctorId }));
+
     try {
       await updateDoc(doc(db, 'users', patientId), {
         assignedDoctorId: doctorId,
@@ -62,6 +67,12 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
       });
     } catch (err) {
       console.error('Error assigning doctor:', err);
+      // Revert on error
+      setDoctorSelections(prev => {
+        const updated = { ...prev };
+        delete updated[patientId];
+        return updated;
+      });
     }
   };
 
@@ -242,13 +253,13 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
         </div>
 
          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-           {[
-             { label: 'Patients', value: patients.length, icon: <Users className="w-5 h-5" />, color: 'blue', backgroundType: 'medical' },
-             { label: 'Doctors', value: doctors.length, icon: <UserCheck className="w-5 h-5" />, color: 'red', backgroundType: 'clinical' },
-             { label: 'Unassigned', value: unassignedPatients.length, icon: <Clock className="w-5 h-5" />, color: 'amber', backgroundType: 'medical' },
-             { label: 'Pending', value: membershipRequests.length, icon: <FileText className="w-5 h-5" />, color: 'purple', backgroundType: 'document' },
-             { label: 'Scan QR', value: '', icon: <QrCode className="w-5 h-5" />, color: 'sky', backgroundType: 'clinical', placeholder: true },
-           ].map((stat, index) => (
+            {[
+              { label: 'Patients', value: patients.length, icon: <Users className="w-5 h-5" />, color: 'blue', backgroundType: 'medical', accent: 'from-blue-500 to-blue-600' },
+              { label: 'Doctors', value: doctors.length, icon: <UserCheck className="w-5 h-5" />, color: 'red', backgroundType: 'clinical', accent: 'from-rose-500 to-rose-600' },
+              { label: 'Unassigned', value: unassignedPatients.length, icon: <Clock className="w-5 h-5" />, color: 'amber', backgroundType: 'medical', accent: 'from-amber-500 to-amber-600' },
+              { label: 'Pending', value: membershipRequests.length, icon: <FileText className="w-5 h-5" />, color: 'purple', backgroundType: 'document', accent: 'from-purple-500 to-purple-600' },
+              { label: 'Scan QR', value: '', icon: <QrCode className="w-5 h-5" />, color: 'sky', backgroundType: 'clinical', placeholder: true, accent: 'from-sky-500 to-sky-600' },
+            ].map((stat, index) => (
              <PremiumCard
                key={stat.label}
                backgroundImage={stat.backgroundType === 'medical' ? 'https://images.unsplash.com/photo-1576669801945-7a346954da5a?w=800&q=80' : stat.backgroundType === 'clinical' ? 'https://images.unsplash.com/photo-1551269901-5c5e14c25df7?w=800&q=80' : stat.backgroundType === 'document' ? 'https://images.unsplash.com/photo-1586983690570-5c6ddc6d9c68?w=800&q=80' : 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=800&q=80'}
@@ -313,32 +324,28 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                        <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center border-2 border-rose-400/60">
-                         <span className="text-white font-semibold">
-                           {patient.name.charAt(0).toUpperCase()}
-                         </span>
-                       </div>
-                      <div>
+                          <span className="text-white font-semibold">
+                            {patient.name.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                       <div>
                         <p className="text-white font-medium">{patient.name}</p>
                         <p className="text-slate-400 text-sm">{patient.email}</p>
-                      </div>
+                       </div>
                     </div>
                   </div>
-                  <select
-                    className="glass-input w-full text-sm"
-                    defaultValue=""
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        handleAssignDoctor(patient.id, e.target.value);
-                      }
-                    }}
-                  >
-                    <option value="" disabled>Assign a doctor...</option>
-                    {doctors.map((doctor) => (
-                      <option key={doctor.id} value={doctor.id}>
-                        Dr. {doctor.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="mt-3">
+                    <CustomDropdown
+                      options={doctors.map(doc => ({
+                        id: doc.id,
+                        name: `Dr. ${doc.name}`,
+                        avatar: doc.profilePicture || doc.avatar,
+                      }))}
+                      value={doctorSelections[patient.id] || ''}
+                      onChange={(doctorId) => handleAssignDoctor(patient.id, doctorId)}
+                      placeholder="Assign a doctor..."
+                    />
+                  </div>
                 </div>
               ))}
               {unassignedPatients.length === 0 && (
@@ -500,21 +507,21 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
                         <span className="text-slate-300 text-sm">Sessions: {patient.completedSessions || 0}/{patient.totalSessions || 0}</span>
                         <span className="text-slate-400 text-xs">{patient.membershipType || 'Custom'}</span>
                       </div>
-                      {/* Priority Warning Badge for Low Sessions */}
-                      {patient.totalSessions > 0 && (patient.totalSessions - (patient.completedSessions || 0)) <= 2 && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="mt-3 p-2 rounded-lg bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/30"
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 animate-pulse" />
-                            <span className="text-xs font-bold text-amber-400 uppercase tracking-wide">
-                              Priority: Only {patient.totalSessions - (patient.completedSessions || 0)} session{patient.totalSessions - (patient.completedSessions || 0) > 1 ? 's' : ''} remaining!
-                            </span>
-                          </div>
-                        </motion.div>
-                      )}
+                       {/* Priority Warning Badge for Low Sessions */}
+                       {(patient.totalSessions || 0) > 0 && ((patient.totalSessions || 0) - (patient.completedSessions || 0)) <= 2 && (
+                         <motion.div
+                           initial={{ opacity: 0, y: -10 }}
+                           animate={{ opacity: 1, y: 0 }}
+                           className="mt-3 p-2 rounded-lg bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/30"
+                         >
+                           <div className="flex items-center gap-2">
+                             <div className="w-4 h-4 rounded-full bg-gradient-to-r from-yellow-400 to-amber-500 animate-pulse" />
+                             <span className="text-xs font-bold text-amber-400 uppercase tracking-wide">
+                               Priority: Only {(patient.totalSessions || 0) - (patient.completedSessions || 0)} session{(patient.totalSessions || 0) - (patient.completedSessions || 0) > 1 ? 's' : ''} remaining!
+                             </span>
+                           </div>
+                         </motion.div>
+                       )}
                     </div>
                   ) : (
                     <div className="mb-4 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
