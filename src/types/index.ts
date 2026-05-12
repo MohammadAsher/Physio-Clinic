@@ -62,6 +62,8 @@ export interface Report {
   fileType: 'image' | 'pdf' | 'other';
   uploadedAt: Date;
   userId?: string;
+  showToDoctor?: boolean;
+  reportName?: string;
 }
 
 export interface Patient {
@@ -138,6 +140,8 @@ export interface PatientReport {
   uploadedAt: Date;
   uploadedBy?: string;
   doctorId?: string;
+  showToDoctor?: boolean;
+  reportName?: string;
 }
 
 export interface Milestone {

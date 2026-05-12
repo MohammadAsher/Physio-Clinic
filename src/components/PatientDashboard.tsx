@@ -1,23 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Dumbbell, CreditCard, TrendingUp, LogOut, UserCheck, FileText, Upload, Image, File, Copy, Check, Sparkles, Crown, UserPlus, X } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, CreditCard, TrendingUp, LogOut, UserCheck, FileText, Crown, UserPlus, X, Check, Copy } from 'lucide-react';
 import { User, PatientView } from '@/types';
 import Logo from './Logo';
 import PatientOverview from './PatientOverview';
 import PatientExercises from './PatientExercises';
 import PatientMembership from './PatientMembership';
 import PatientProgress from './PatientProgress';
-import { db } from '@/lib/firebase';
-import { doc, updateDoc, onSnapshot, collection, addDoc } from 'firebase/firestore';
-import ImageUpload from './ImageUpload';
+import ReportsManagement from './ReportsManagement';
 import SmartGreeting from './SmartGreeting';
 import DailyTip from './DailyTip';
-import MedicalEmptyState from './MedicalEmptyState';
-import FileViewerModal from './FileViewerModal';
 import RoleBasedQuotes from './RoleBasedQuotes';
 import PremiumCard from './PremiumCard';
+import ImageUpload from './ImageUpload';
+import FileViewerModal from './FileViewerModal';
+import MedicalEmptyState from './MedicalEmptyState';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc, collection, addDoc, onSnapshot } from 'firebase/firestore';
 
 interface PatientDashboardProps {
   user: User;
@@ -45,8 +46,8 @@ const staggerContainer = {
 
 const slideUpVariant = {
   hidden: { opacity: 0, y: 20 },
-  visible: { 
-    opacity: 1, 
+  visible: {
+    opacity: 1,
     y: 0,
     transition: {
       type: 'spring',
@@ -58,8 +59,6 @@ const slideUpVariant = {
 
 export default function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
   const [activeView, setActiveView] = useState<PatientView>('overview');
-  const [reports, setReports] = useState<any[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [trxId, setTrxId] = useState('');
@@ -73,10 +72,8 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
     gender: user?.patientProfile?.gender || '',
     medicalHistory: user?.patientProfile?.medicalHistory || '',
   });
-  // File viewer modal state
-  const [selectedReport, setSelectedReport] = useState<{ fileUrl: string; fileName: string; fileType: 'image' | 'pdf' | 'other' } | null>(null);
 
-  useEffect(() => {
+useEffect(() => {
     setProfileImage(user?.patientProfile?.profilePicture || user?.avatar || '');
     setProfileData({
       age: user?.patientProfile?.age || '',
@@ -86,100 +83,54 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
   }, [user]);
 
 const getPlanBadge = (amount?: number) => {
-    if (!amount || amount === 0) return null;
-    if (amount >= 3000 && amount <= 7000) {
-      return { label: 'Silver', color: 'bg-slate-400 text-white' };
-    } else if (amount > 7000 && amount <= 12000) {
-      return { label: 'Gold', color: 'bg-gradient-to-r from-amber-400 to-yellow-500 text-black' };
-    } else if (amount > 12000) {
-      return { label: 'Diamond', color: 'bg-gradient-to-r from-blue-400 to-purple-500 text-white' };
-    }
-    return null;
-  };
+     if (!amount || amount === 0) return null;
+     if (amount >= 3000 && amount <= 7000) {
+       return { label: 'Silver', color: 'bg-slate-400 text-white' };
+     } else if (amount > 7000 && amount <= 12000) {
+       return { label: 'Gold', color: 'bg-gradient-to-r from-amber-400 to-yellow-500 text-black' };
+     } else if (amount > 12000) {
+       return { label: 'Diamond', color: 'bg-gradient-to-r from-blue-400 to-purple-500 text-white' };
+     }
+     return null;
+   };
 
-   const [freshUserData, setFreshUserData] = useState<User | null>(null);
-   
+    const [freshUserData, setFreshUserData] = useState<User | null>(null);
+    
     // Computed variables for UI state
     const isAssigned = !!freshUserData?.assignedTherapistName;
     const isMember = freshUserData?.isMember && freshUserData?.membershipStatus === 'active';
     const isPendingApproval = freshUserData?.membershipStatus === 'pendingApproval';
     const isProfileComplete = freshUserData?.profileCompleted && freshUserData?.patientProfile?.age;
 
-   useEffect(() => {
-     if (user?.id) {
-       setReports(user?.reports || []);
-       const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
-         if (docSnap.exists()) {
-           const data = docSnap.data() as User;
-           setReports(data?.reports || []);
-           setFreshUserData(data); // Update fresh user data from Firestore
-           
-           // Also update local state fields for immediate use
-           setProfileImage(data?.patientProfile?.profilePicture || data?.avatar || '');
-           setProfileData({
-             age: data?.patientProfile?.age || '',
-             gender: data?.patientProfile?.gender || '',
-             medicalHistory: data?.patientProfile?.medicalHistory || '',
-           });
-         }
-       });
-       return () => unsubscribe();
-     }
-   }, [user?.id]);
-   
-   // Keep local state in sync with incoming user prop (for initial load)
-   useEffect(() => {
-     setProfileImage(user?.patientProfile?.profilePicture || user?.avatar || '');
-     setProfileData({
-       age: user?.patientProfile?.age || '',
-       gender: user?.patientProfile?.gender || '',
-       medicalHistory: user?.patientProfile?.medicalHistory || '',
-     });
-   }, [user]);
-
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user?.id) {
-      console.log('Upload Error: No file or user ID');
-      return;
-    }
+    useEffect(() => {
+      if (user?.id) {
+        const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data() as User;
+            setFreshUserData(data); // Update fresh user data from Firestore
+            
+            // Also update local state fields for immediate use
+            setProfileImage(data?.patientProfile?.profilePicture || data?.avatar || '');
+            setProfileData({
+              age: data?.patientProfile?.age || '',
+              gender: data?.patientProfile?.gender || '',
+              medicalHistory: data?.patientProfile?.medicalHistory || '',
+            });
+          }
+        });
+        return () => unsubscribe();
+      }
+    }, [user?.id]);
     
-    console.log('Processing file:', file.name, file.size, file.type);
-    setUploading(true);
-    try {
-      const base64 = await fileToBase64(file);
-      console.log('File converted to Base64, length:', base64.length);
-      
-      const fileType = file.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'image';
-      const newReport = {
-        fileName: file.name,
-        fileUrl: base64,
-        fileType,
-        uploadedAt: new Date()
-      };
-      
-      console.log('Saving to Firestore reports array...');
-      const currentReports = user?.reports || [];
-      await updateDoc(doc(db, 'users', user.id), {
-        reports: [...currentReports, newReport]
+    // Keep local state in sync with incoming user prop (for initial load)
+    useEffect(() => {
+      setProfileImage(user?.patientProfile?.profilePicture || user?.avatar || '');
+      setProfileData({
+        age: user?.patientProfile?.age || '',
+        gender: user?.patientProfile?.gender || '',
+        medicalHistory: user?.patientProfile?.medicalHistory || '',
       });
-      console.log('Report saved successfully!');
-    } catch (err) {
-      console.error('Error saving report:', err);
-      alert('Upload failed. Please try again.');
-    }
-    setUploading(false);
-    if (e.target) e.target.value = '';
-  };
+    }, [user]);
 
   const handleSubmitMembershipRequest = async () => {
      if (!trxId.trim() || !user?.id) return;
@@ -281,75 +232,9 @@ const getPlanBadge = (amount?: number) => {
               <DailyTip />
             </motion.div>
 
-                <motion.div variants={slideUpVariant}>
-                  <PremiumCard
-                    backgroundImage="https://images.unsplash.com/photo-1586983690570-5c6ddc6d9c68?w=800&q=80"
-                    className="document"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-rose-600 to-crimson-700 flex items-center justify-center shadow-lg shadow-rose-900/30">
-                          <FileText className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-white drop-shadow-lg">Medical Reports</h3>
-                          <p className="text-rose-400 text-xs">Upload PDF, X-rays, MRI reports</p>
-                        </div>
-                      </div>
-                    </div>
-                    <label className="flex items-center justify-center w-full p-6 border-2 border-dashed border-rose-500/30 rounded-xl cursor-pointer hover:border-rose-500 hover:bg-rose-500/10 transition-all group">
-                      <input 
-                        type="file" 
-                        accept="image/*,.pdf" 
-                        onChange={handleUpload} 
-                        className="hidden" 
-                        disabled={uploading} 
-                      />
-                      <div className="text-center">
-                        {uploading ? (
-                          <>
-                            <div className="w-8 h-8 mx-auto mb-2 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
-                            <p className="text-rose-300 font-medium">Uploading...</p>
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="w-10 h-10 mx-auto mb-2 text-rose-400 group-hover:text-rose-300 transition-colors" />
-                            <p className="text-rose-200 font-medium">Tap to Upload Report</p>
-                            <p className="text-slate-500 text-xs mt-1">PDF, JPG, PNG (Max 10MB)</p>
-                          </>
-                        )}
-                      </div>
-                    </label>
-                    
-                    {/* Recent reports list */}
-                    {reports.length > 0 && (
-                      <div className="mt-6 space-y-2">
-                        <p className="text-slate-400 text-sm mb-2">Recent Uploads:</p>
-                        {reports.slice(-3).reverse().map((report) => (
-                          <div 
-                            key={Math.random()}
-                            className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/5 cursor-pointer hover:border-rose-500/30 transition-all"
-                            onClick={() => setSelectedReport({
-                              fileUrl: report.fileUrl,
-                              fileName: report.fileName,
-                              fileType: report.fileType
-                            })}
-                          >
-                            <div className="flex items-center gap-2">
-                              {report.fileType === 'image' ? (
-                                <Image className="w-4 h-4 text-primary" />
-                              ) : (
-                                <File className="w-4 h-4 text-red-400" />
-                              )}
-                              <span className="text-white text-sm truncate max-w-[200px]">{report.fileName}</span>
-                            </div>
-                            <span className="text-rose-400 text-xs">View</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </PremiumCard>
-                </motion.div>
+            <motion.div variants={slideUpVariant}>
+              <ReportsManagement user={user} />
+            </motion.div>
 
             <motion.div variants={slideUpVariant}>
               <PatientOverview 
@@ -368,88 +253,7 @@ const getPlanBadge = (amount?: number) => {
       case 'progress':
         return <PatientProgress patient={null} />;
       case 'reports':
-        return (
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            animate="visible"
-            className="space-y-6 max-w-2xl mx-auto"
-          >
-            <motion.div variants={slideUpVariant} className="glass-card-interactive p-8 rounded-2xl bg-gradient-to-br from-rose-500/10 to-crimson-700/5 border border-rose-500/20">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-rose-600 to-crimson-700 flex items-center justify-center">
-                  <Upload className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-white">Upload Medical Reports</h2>
-                  <p className="text-rose-400 text-xs">PDF or images (MRI, X-rays) for your doctor</p>
-                </div>
-              </div>
-              <label className="flex items-center justify-center w-full p-8 border-2 border-dashed border-rose-500/30 rounded-xl cursor-pointer hover:border-rose-500 hover:bg-rose-500/10 transition-all group">
-                <input type="file" accept="image/*,.pdf" onChange={handleUpload} className="hidden" disabled={uploading} />
-                <div className="text-center">
-                  {uploading ? (
-                    <>
-                      <div className="w-8 h-8 mx-auto mb-3 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
-                      <p className="text-rose-300 font-medium">Uploading...</p>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-12 h-12 mx-auto mb-3 text-rose-400 group-hover:text-rose-300 transition-colors" />
-                      <p className="text-rose-200 font-medium">Click to upload files</p>
-                      <p className="text-slate-500 text-sm mt-1">PDF, JPG, PNG (Max 10MB)</p>
-                    </>
-                  )}
-                </div>
-              </label>
-            </motion.div>
-            
-            <motion.div variants={slideUpVariant} className="glass-card-interactive p-6">
-              <h2 className="text-xl font-semibold text-white mb-4">Your Reports</h2>
-              {reports.length > 0 ? (
-                <div className="space-y-3">
-                  {reports.map((report) => (
-                    <motion.div
-                      key={report.id || Math.random()}
-                      whileHover={{ scale: 1.01 }}
-                      className="flex items-center justify-between p-4 bg-white/5 rounded-xl hover:shadow-crimson-glow transition-all"
-                    >
-                      <div className="flex items-center gap-3">
-                        {report.fileType === 'image' ? (
-                          <Image className="w-8 h-8 text-primary" />
-                        ) : (
-                          <File className="w-8 h-8 text-red-400" />
-                        )}
-                        <div>
-                          <p className="text-white font-medium">{report.fileName}</p>
-                          <p className="text-slate-400 text-xs">
-                            {report.uploadedAt?.toLocaleDateString?.() || new Date(report.uploadedAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setSelectedReport({
-                          fileUrl: report.fileUrl,
-                          fileName: report.fileName,
-                          fileType: report.fileType
-                        })}
-                        className="px-4 py-2 rounded-lg bg-primary/20 text-primary text-sm hover:bg-primary/30 hover:scale-[1.02] hover:shadow-crimson-glow transition-all"
-                      >
-                        View Report
-                      </button>
-                    </motion.div>
-                  ))}
-                </div>
-              ) : (
-                <MedicalEmptyState
-                  title="No Reports Yet"
-                  description="Upload your medical reports, prescriptions, and X-rays for your doctor to review."
-                  className="bg-white/5"
-                />
-              )}
-            </motion.div>
-          </motion.div>
-        );
+        return <ReportsManagement user={user} />;
       default:
         return null;
     }
@@ -677,7 +481,6 @@ const getPlanBadge = (amount?: number) => {
                       Waiting for Admin Approval
                     </motion.p>
                     <motion.div
-                      initial={{ scale: [1, 1.2, 1] }}
                       animate={{ scale: [1, 1.2, 1] }}
                       transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
                       className="w-4 h-4 mx-auto mt-4 rounded-full bg-emerald-400"
@@ -867,14 +670,6 @@ const getPlanBadge = (amount?: number) => {
         )}
       </AnimatePresence>
 
-      {/* File Viewer Modal */}
-      <FileViewerModal
-        isOpen={!!selectedReport}
-        onClose={() => setSelectedReport(null)}
-        fileUrl={selectedReport?.fileUrl || ''}
-        fileName={selectedReport?.fileName || ''}
-        fileType={selectedReport?.fileType || 'other'}
-      />
     </div>
   );
 }

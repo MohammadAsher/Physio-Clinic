@@ -137,20 +137,26 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
   };
 
   // Fetch patient reports from their document's reports array
+  // Only fetch reports where showToDoctor === true (privacy-respecting)
   useEffect(() => {
     const patientId = selectedPatient?.id || selectedPatient?.userId;
     if (patientId) {
       const unsubscribe = onSnapshot(doc(db, 'users', patientId), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
-          const reports: PatientReport[] = (data?.reports || []).map((r: any, index: number) => ({
-            id: `report-${index}`,
+          const allReports = data?.reports || [];
+          // Filter: only include reports where showToDoctor is explicitly true
+          const filteredReports = allReports.filter((r: any) => r.showToDoctor === true);
+          const reports: PatientReport[] = filteredReports.map((r: any, index: number) => ({
+            id: r.id || `report-${index}`,
             fileName: r.fileName,
+            reportName: r.reportName || r.fileName,
             fileUrl: r.fileUrl,
             fileType: r.fileType,
-            uploadedAt: r.uploadedAt?.toDate() || r.uploadedAt || new Date()
+            uploadedAt: r.uploadedAt?.toDate ? r.uploadedAt.toDate() : new Date(r.uploadedAt),
+            showToDoctor: r.showToDoctor,
           }));
-          setSelectedPatient(prev => prev ? { ...prev, reports } : null);
+          setSelectedPatient((prev: any) => prev ? { ...prev, reports } : null);
         }
       });
       return () => unsubscribe();
@@ -354,7 +360,7 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
 
                       <div className="space-y-3 mb-6">
                         {selectedPatient.reports && selectedPatient.reports.length > 0 ? (
-                          selectedPatient.reports.map((report, index) => (
+                          selectedPatient.reports.map((report: PatientReport, index: number) => (
                             <motion.div
                               key={report.id || index}
                               initial={{ opacity: 0, x: -20 }}
@@ -372,7 +378,7 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                                 </div>
                                 <div>
                                   <p className="text-sm font-semibold text-white group-hover:text-rose-300 transition-colors">
-                                    {report.fileName}
+                                    {report.reportName || report.fileName}
                                   </p>
                                   <p className="text-xs text-slate-400">
                                     {report.uploadedAt?.toLocaleDateString('en-US', {
@@ -403,7 +409,7 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                             className="text-center py-12 rounded-2xl bg-white/5 border border-white/5"
                           >
                             <FileText className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-                            <p className="text-sm text-slate-500">No reports uploaded yet</p>
+                            <p className="text-sm text-slate-500">No shared reports to display</p>
                           </motion.div>
                         )}
                       </div>
