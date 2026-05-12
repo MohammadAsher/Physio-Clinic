@@ -2,13 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { LayoutDashboard, Dumbbell, CreditCard, TrendingUp, LogOut, UserCheck, FileText, Crown, UserPlus, X, Check, Copy, Menu, ChevronRight, ChevronLeft, Upload } from 'lucide-react';
+import { LayoutDashboard, LogOut, FileText, Crown, UserPlus, UserCheck, X, Check, Copy, Menu, ChevronRight, ChevronLeft, Upload } from 'lucide-react';
 import { User, PatientView } from '@/types';
 import Logo from './Logo';
 import PatientOverview from './PatientOverview';
-import PatientExercises from './PatientExercises';
-import PatientMembership from './PatientMembership';
-import PatientProgress from './PatientProgress';
 import ReportsManagement from './ReportsManagement';
 import SmartGreeting from './SmartGreeting';
 import DailyTip from './DailyTip';
@@ -27,8 +24,6 @@ interface PatientDashboardProps {
 
 const navItems: { id: PatientView; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-5 h-5" /> },
-  { id: 'exercises', label: 'Exercises', icon: <Dumbbell className="w-5 h-5" /> },
-  { id: 'progress', label: 'Progress', icon: <TrendingUp className="w-5 h-5" /> },
   { id: 'reports', label: 'Medical Vault', icon: <FileText className="w-5 h-5" /> },
 ];
 
@@ -186,110 +181,104 @@ useEffect(() => {
      setSavingProfile(false);
     };
 
-    const renderContent = () => {
-      switch (activeView) {
-        case 'overview':
-          return (
-            <motion.div
-                variants={staggerContainer}
-                initial="hidden"
-                animate="visible"
-                className="space-y-6"
-              >
-                {!isProfileComplete && (
-                  <motion.button
-                    variants={slideUpVariant}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowProfileModal(true)}
-                    className="w-full mb-6 px-6 py-4 rounded-xl premium-gradient text-white font-semibold flex items-center justify-center gap-3 shadow-lg shadow-crimson-intense"
-                  >
-                    <UserPlus className="w-5 h-5" />
-                    <span>Complete Your Profile</span>
-                  </motion.button>
-                )}
+const renderContent = () => {
+       switch (activeView) {
+         case 'overview':
+           return (
+             <motion.div
+               variants={staggerContainer}
+               initial="hidden"
+               animate="visible"
+               className="space-y-6"
+             >
+               {!isProfileComplete && (
+                 <motion.button
+                   variants={slideUpVariant}
+                   whileHover={{ scale: 1.02 }}
+                   whileTap={{ scale: 0.98 }}
+                   onClick={() => setShowProfileModal(true)}
+                   className="w-full mb-6 px-6 py-4 rounded-xl premium-gradient text-white font-semibold flex items-center justify-center gap-3 shadow-lg shadow-crimson-intense"
+                 >
+                   <UserPlus className="w-5 h-5" />
+                   <span>Complete Your Profile</span>
+                 </motion.button>
+               )}
 
-                <motion.div variants={slideUpVariant}>
-                  <SmartGreeting name={user.name} />
-                </motion.div>
+               <motion.div variants={slideUpVariant}>
+                 <SmartGreeting name={user.name} />
+               </motion.div>
 
-                <motion.div variants={slideUpVariant}>
-                  <DailyTip />
-                </motion.div>
+               <motion.div variants={slideUpVariant}>
+                 <DailyTip />
+               </motion.div>
 
-                <motion.div variants={slideUpVariant}>
-                  <PremiumCard backgroundImage="https://images.unsplash.com/photo-1586983690570-5c6ddc6d9c68?w=800&q=80" className="document">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-rose-600 to-crimson-700 flex items-center justify-center shadow-lg shadow-rose-900/30">
-                          <FileText className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-semibold text-white drop-shadow-lg">Medical Vault</h3>
-                          <p className="text-rose-400 text-xs">{freshUserData?.reports?.length || 0} report(s) uploaded</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => setActiveView('reports')}
-                        className="px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-white text-xs font-medium hover:bg-white/20 hover:border-white/20 transition-all flex items-center gap-1.5"
-                      >
-                        View All <Upload className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+               <motion.div variants={slideUpVariant}>
+                 <PremiumCard backgroundImage="https://images.unsplash.com/photo-1586983690570-5c6ddc6d9c68?w=800&q=80" className="document">
+                   <div className="flex items-center justify-between mb-4">
+                     <div className="flex items-center gap-3">
+                       <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-rose-600 to-crimson-700 flex items-center justify-center shadow-lg shadow-rose-900/30">
+                         <FileText className="w-6 h-6 text-white" />
+                       </div>
+                       <div>
+                         <h3 className="text-lg font-semibold text-white drop-shadow-lg">Medical Vault</h3>
+                         <p className="text-rose-400 text-xs">{freshUserData?.reports?.length || 0} report(s) uploaded</p>
+                       </div>
+                     </div>
+                     <button
+                       onClick={() => setActiveView('reports')}
+                       className="px-4 py-2 rounded-lg bg-white/10 border border-white/10 text-white text-xs font-medium hover:bg-white/20 hover:border-white/20 transition-all flex items-center gap-1.5"
+                     >
+                       View All <Upload className="w-3.5 h-3.5" />
+                     </button>
+                   </div>
 
-                    {(freshUserData?.reports || []).slice(-3).reverse().map((report: any, idx: number) => (
-                      <div
-                        key={report.id || idx}
-                        onClick={() => setActiveView('reports')}
-                        className="flex items-center justify-between p-2.5 bg-white/5 rounded-lg border border-white/5 cursor-pointer hover:border-rose-500/30 transition-all mb-1 last:mb-0"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 flex-shrink-0">
-                            {report.fileType === 'image' ? (
-                              <Upload className="w-3 h-3 text-rose-400" />
-                            ) : (
-                              <FileText className="w-3 h-3 text-rose-400" />
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-white text-xs truncate max-w-[160px]">{report.reportName || report.fileName}</p>
-                            <p className="text-slate-500 text-[10px]">{new Date(report.uploadedAt?.seconds ? report.uploadedAt.seconds * 1000 : report.uploadedAt).toLocaleDateString()}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {report.showToDoctor ? (
-                            <span className="text-[10px] text-emerald-400 font-medium">Shared</span>
-                          ) : (
-                            <span className="text-[10px] text-slate-500">Private</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </PremiumCard>
-                </motion.div>
+                   {(freshUserData?.reports || []).slice(-3).reverse().map((report: any, idx: number) => (
+                     <div
+                       key={report.id || idx}
+                       onClick={() => setActiveView('reports')}
+                       className="flex items-center justify-between p-2.5 bg-white/5 rounded-lg border border-white/5 cursor-pointer hover:border-rose-500/30 transition-all mb-1 last:mb-0"
+                     >
+                       <div className="flex items-center gap-2 min-w-0">
+                         <div className="p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 flex-shrink-0">
+                           {report.fileType === 'image' ? (
+                             <Upload className="w-3 h-3 text-rose-400" />
+                           ) : (
+                             <FileText className="w-3 h-3 text-rose-400" />
+                           )}
+                         </div>
+                         <div className="min-w-0">
+                           <p className="text-white text-xs truncate max-w-[160px]">{report.reportName || report.fileName}</p>
+                           <p className="text-slate-500 text-[10px]">{new Date(report.uploadedAt?.seconds ? report.uploadedAt.seconds * 1000 : report.uploadedAt).toLocaleDateString()}</p>
+                         </div>
+                       </div>
+                       <div className="flex items-center gap-1.5 flex-shrink-0">
+                         {report.showToDoctor ? (
+                           <span className="text-[10px] text-emerald-400 font-medium">Shared</span>
+                         ) : (
+                           <span className="text-[10px] text-slate-500">Private</span>
+                         )}
+                       </div>
+                     </div>
+                   ))}
+                 </PremiumCard>
+               </motion.div>
 
-                <motion.div variants={slideUpVariant}>
-                  <PatientOverview
-                    user={user}
-                    onUpgradeClick={() => setShowMembershipModal(true)}
-                    isMember={isMember}
-                    isPendingApproval={isPendingApproval}
-                  />
-                </motion.div>
-              </motion.div>
-          );
-        case 'exercises':
-          return <PatientExercises patient={null} />;
-        case 'membership':
-          return <PatientMembership patient={null} />;
-        case 'progress':
-          return <PatientProgress patient={null} />;
-        case 'reports':
-          return <ReportsManagement user={user} />;
-        default:
-          return null;
-      }
-    };
+               <motion.div variants={slideUpVariant}>
+                 <PatientOverview
+                   user={user}
+                   onUpgradeClick={() => setShowMembershipModal(true)}
+                   isMember={isMember}
+                   isPendingApproval={isPendingApproval}
+                 />
+               </motion.div>
+             </motion.div>
+           );
+         case 'reports':
+           return <ReportsManagement user={user} />;
+         default:
+           return null;
+       }
+     };
 
   return (
     <div className="min-h-screen bg-slate-950 flex">
@@ -346,7 +335,7 @@ useEffect(() => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen">
-        <header className="glass-card border-t-0 border-x-0 border-b rounded-none px-6 py-4 flex items-center justify-between">
+        <header className="bg-slate-900/95 backdrop-blur-sm border-b border-white/5 rounded-none px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -375,10 +364,11 @@ useEffect(() => {
 
             <button
               onClick={onLogout}
-              className="p-2 hover:bg-red-500/10 hover:scale-[1.02] hover:shadow-crimson-glow rounded-lg group transition-all"
+              className="px-6 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm font-bold uppercase tracking-wider hover:bg-red-500/20 hover:border-red-500/50 hover:shadow-crimson-glow transition-all flex items-center gap-2 shadow-lg shadow-red-900/10"
               title="Logout"
             >
-              <LogOut className="w-5 h-5 text-slate-500 group-hover:text-red-400" />
+              <LogOut className="w-4 h-4" />
+              Logout
             </button>
           </div>
         </header>

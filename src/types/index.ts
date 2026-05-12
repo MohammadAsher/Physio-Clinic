@@ -163,5 +163,5 @@ export interface Service {
 
 export type AuthView = 'landing' | 'login' | 'signup';
 export type DashboardView = 'patient' | 'doctor';
-export type PatientView = 'overview' | 'exercises' | 'membership' | 'progress' | 'reports';
+export type PatientView = 'overview' | 'reports';
 export type DoctorView = 'waiting' | 'consultation' | 'patients';
