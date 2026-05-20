@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Users, Clock, Activity, CheckCircle, ChevronRight, X, 
-  Calendar, MapPin, FileText, UserCircle, File, Image
+  Calendar, FileText, UserCircle, File, Image, Briefcase,
+  BookOpen, Award, Info, Camera
 } from 'lucide-react';
 import { DoctorView, PatientReport } from '@/types';
 import { db } from '@/lib/firebase';
@@ -12,7 +13,6 @@ import {
   doc, 
   updateDoc, 
   onSnapshot,
-  arrayUnion,
   collection,
   query,
   where
@@ -20,7 +20,6 @@ import {
 import ImageUpload from './ImageUpload';
 import SmartGreeting from './SmartGreeting'; 
 import DailyTip from './DailyTip';
-import CounterAnimation from './CounterAnimation';
 import FileViewerModal from './FileViewerModal';
 import { EXERCISES } from '@/lib/data';
 import RoleBasedQuotes from './RoleBasedQuotes';
@@ -35,33 +34,78 @@ interface DoctorDashboardProps {
   therapists?: any[];
 }
 
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 export default function DoctorDashboard({ user, patients, onUpdatePatient, onLogout }: DoctorDashboardProps) {
   const [activeView, setActiveView] = useState<DoctorView>('waiting');
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [selectedExercises, setSelectedExercises] = useState<any[]>([]);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  const [profileImage, setProfileImage] = useState<string>(user?.profilePicture || user?.avatar || '');
+  const [profileImage, setProfileImage] = useState<string>(
+    user?.doctorProfile?.profilePicture || user?.profilePicture || user?.avatar || ''
+  );
   const [savingProfile, setSavingProfile] = useState(false);
   const [selectedReport, setSelectedReport] = useState<{ fileUrl: string; fileName: string; fileType: 'image' | 'pdf' | 'other' } | null>(null);
+  const [liveUser, setLiveUser] = useState<any>(user);
+
+  // Doctor profile form fields
+  const [profileForm, setProfileForm] = useState({
+    fullName: user?.name || '',
+    specialization: user?.doctorProfile?.specialization || '',
+    experience: user?.doctorProfile?.experience || '',
+    education: user?.doctorProfile?.education || '',
+    timings: user?.doctorProfile?.timings || '9:00 AM - 5:00 PM',
+    about: user?.doctorProfile?.about || '',
+    qualifications: user?.doctorProfile?.qualifications || '',
+  });
+  const [availableDays, setAvailableDays] = useState<string[]>(
+    user?.doctorProfile?.availableDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+  );
 
   // Real-time therapist list
   const [therapists, setTherapists] = useState<any[]>([]);
 
-  // Fetch therapists data
+  // Listen to live user data
+  useEffect(() => {
+    if (!user?.id) return;
+    const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setLiveUser({ id: user.id, ...data });
+        setProfileImage(
+          data?.doctorProfile?.profilePicture || data?.profilePicture || data?.avatar || ''
+        );
+        setProfileForm(prev => ({
+          fullName: data?.name || prev.fullName,
+          specialization: data?.doctorProfile?.specialization || prev.specialization,
+          experience: data?.doctorProfile?.experience || prev.experience,
+          education: data?.doctorProfile?.education || prev.education,
+          timings: data?.doctorProfile?.timings || prev.timings,
+          about: data?.doctorProfile?.about || prev.about,
+          qualifications: data?.doctorProfile?.qualifications || prev.qualifications,
+        }));
+        setAvailableDays(data?.doctorProfile?.availableDays || availableDays);
+      }
+    });
+    return () => unsubscribe();
+  }, [user?.id]);
+
+  // Fetch therapists
   useEffect(() => {
     const therapistsQuery = query(collection(db, 'users'), where('role', '==', 'therapist'));
     const unsubscribe = onSnapshot(therapistsQuery, (snapshot) => {
-      const therapistList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const therapistList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setTherapists(therapistList);
     });
     return () => unsubscribe();
   }, []);
 
-  const isProfileComplete = profileImage && user?.doctorProfile?.education && user?.doctorProfile?.specialization;
+  const isProfileComplete = !!(
+    liveUser?.profileCompleted &&
+    liveUser?.doctorProfile?.education &&
+    liveUser?.doctorProfile?.specialization
+  );
 
   const toggleExercise = (exercise: any) => {
     setSelectedExercises(prev => {
@@ -71,128 +115,112 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
     });
   };
 
-    const handleSaveExercises = async () => {
-        // Validation: Check if a therapist is selected
-        if (!selectedPatient?.assignedTherapistId) {
-          alert('Please select a therapist first');
-          return;
-        }
-
-        const selectedTherapist = therapists.find(t => t.id === selectedPatient.assignedTherapistId);
-        if (!selectedTherapist) {
-          alert('Selected therapist not found. Please select a valid therapist.');
-          return;
-        }
-
-        try {
-          // Save exercises with therapist assignment and lastUpdated timestamp
-           await updateDoc(doc(db, 'users', selectedPatient.id), {
-             assignedExercises: selectedExercises,
-             assignedTherapistId: selectedPatient.assignedTherapistId,
-             assignedTherapistName: selectedTherapist.name,
-             status: 'under_treatment',
-             prescription: selectedPatient.prescription || '',
-             role: 'patient',
-             totalSessions: selectedPatient.totalSessions || 10,
-             lastUpdated: new Date()
-           });
-
-          // Update local state
-           setSelectedPatient({ 
-             ...selectedPatient, 
-             assignedExercises: selectedExercises,
-             assignedTherapistId: selectedPatient.assignedTherapistId,
-             assignedTherapistName: selectedTherapist.name,
-             status: 'under_treatment',
-             prescription: selectedPatient.prescription || '',
-             role: 'patient',
-             totalSessions: selectedPatient.totalSessions || 10,
-             lastUpdated: new Date()
-           });
-
-          setShowExerciseModal(false);
-          alert('Exercise plan assigned successfully!');
-        } catch (err) {
-          console.error('Error saving exercises:', err);
-          alert('Failed to assign exercises. Please try again.');
-        }
-      };
-
-  // Profile status check - use real-time state
-  useEffect(() => {
-    if (!user?.id) return;
-    const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const isComplete = !!(data?.profileCompleted && data?.doctorProfile?.education && data?.doctorProfile?.specialization);
-         setSelectedPatient((prev: any) => prev ? { ...prev, profileCompleted: isComplete } : null);
-      }
-    });
-    return () => unsubscribe();
-  }, [user?.id]);
+  const handleSaveExercises = async () => {
+    if (!selectedPatient?.assignedTherapistId) {
+      alert('Please select a therapist first');
+      return;
+    }
+    const selectedTherapist = therapists.find(t => t.id === selectedPatient.assignedTherapistId);
+    if (!selectedTherapist) {
+      alert('Selected therapist not found. Please select a valid therapist.');
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'users', selectedPatient.id), {
+        assignedExercises: selectedExercises,
+        assignedTherapistId: selectedPatient.assignedTherapistId,
+        assignedTherapistName: selectedTherapist.name,
+        status: 'under_treatment',
+        prescription: selectedPatient.prescription || '',
+        role: 'patient',
+        totalSessions: selectedPatient.totalSessions || 10,
+        lastUpdated: new Date()
+      });
+      setSelectedPatient({ 
+        ...selectedPatient, 
+        assignedExercises: selectedExercises,
+        assignedTherapistId: selectedPatient.assignedTherapistId,
+        assignedTherapistName: selectedTherapist.name,
+        status: 'under_treatment',
+        lastUpdated: new Date()
+      });
+      setShowExerciseModal(false);
+      alert('Exercise plan assigned successfully!');
+    } catch (err) {
+      console.error('Error saving exercises:', err);
+      alert('Failed to assign exercises. Please try again.');
+    }
+  };
 
   const handleSelectPatient = (patient: any) => {
     setSelectedPatient(patient);
     setSelectedExercises(patient.exercises || []);
   };
 
-  // Fetch patient reports from their document's reports array
-  // Only fetch reports where showToDoctor === true (privacy-respecting)
+  // Fetch patient reports (only shared ones)
   useEffect(() => {
     const patientId = selectedPatient?.id || selectedPatient?.userId;
-    if (patientId) {
-      const unsubscribe = onSnapshot(doc(db, 'users', patientId), (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          const allReports = data?.reports || [];
-          // Filter: only include reports where showToDoctor is explicitly true
-          const filteredReports = allReports.filter((r: any) => r.showToDoctor === true);
-          const reports: PatientReport[] = filteredReports.map((r: any, index: number) => ({
-            id: r.id || `report-${index}`,
-            fileName: r.fileName,
-            reportName: r.reportName || r.fileName,
-            fileUrl: r.fileUrl,
-            fileType: r.fileType,
-            uploadedAt: r.uploadedAt?.toDate ? r.uploadedAt.toDate() : new Date(r.uploadedAt),
-            showToDoctor: r.showToDoctor,
-          }));
-          setSelectedPatient((prev: any) => prev ? { ...prev, reports } : null);
-        }
-      });
-      return () => unsubscribe();
-    }
+    if (!patientId) return;
+    const unsubscribe = onSnapshot(doc(db, 'users', patientId), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const allReports = data?.reports || [];
+        const filteredReports = allReports.filter((r: any) => r.showToDoctor === true);
+        const reports: PatientReport[] = filteredReports.map((r: any, index: number) => ({
+          id: r.id || `report-${index}`,
+          fileName: r.fileName,
+          reportName: r.reportName || r.fileName,
+          fileUrl: r.fileUrl,
+          fileType: r.fileType,
+          uploadedAt: r.uploadedAt?.toDate ? r.uploadedAt.toDate() : new Date(r.uploadedAt),
+          showToDoctor: r.showToDoctor,
+        }));
+        setSelectedPatient((prev: any) => prev ? { ...prev, reports } : null);
+      }
+    });
+    return () => unsubscribe();
   }, [selectedPatient?.id, selectedPatient?.userId]);
 
-  const handleStartSession = () => {
-    if (!selectedPatient) return;
-    const updatedPatient = { ...selectedPatient, status: 'consulting' as const };
-    onUpdatePatient(updatedPatient);
-    setSelectedPatient(updatedPatient);
-  };
-
-  const handleSavePatientProfile = async () => {
+  // Save full doctor profile
+  const handleSaveProfile = async () => {
     if (!user?.id) return;
+    if (!profileForm.specialization || !profileForm.education) {
+      alert('Specialization and Education are required.');
+      return;
+    }
     setSavingProfile(true);
     try {
-      const updateData = {
+      const updateData: any = {
+        name: profileForm.fullName || user?.name,
         profileCompleted: true,
-        doctorProfile: { 
-          education: '',
-          specialization: '',
-          experience: '',
-          availableDays: [],
-          timings: ''
+        doctorProfile: {
+          specialization: profileForm.specialization,
+          experience: profileForm.experience,
+          education: profileForm.education,
+          timings: profileForm.timings,
+          about: profileForm.about,
+          qualifications: profileForm.qualifications,
+          availableDays,
+          profilePicture: profileImage,
         },
-        profilePicture: profileImage,
-        avatar: profileImage
       };
+      if (profileImage) {
+        updateData.profilePicture = profileImage;
+        updateData.avatar = profileImage;
+      }
       await updateDoc(doc(db, 'users', user.id), updateData);
       setShowProfileModal(false);
-      console.log("Profile updated successfully");
     } catch (err) {
-      console.error('Error:', err);
+      console.error('Error saving profile:', err);
+      alert('Failed to save profile. Please try again.');
     }
     setSavingProfile(false);
+  };
+
+  const toggleDay = (day: string) => {
+    setAvailableDays(prev =>
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+    );
   };
 
   return (
@@ -212,9 +240,9 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
               />
             </div>
             <div>
-              <p className="text-white font-bold text-lg tracking-wide">Dr. {user?.name}</p>
+              <p className="text-white font-bold text-lg tracking-wide">Dr. {liveUser?.name || user?.name}</p>
               <p className="text-rose-500 text-[10px] uppercase tracking-[0.3em] font-black">
-                {user?.doctorProfile?.specialization || 'Physiotherapist'}
+                {liveUser?.doctorProfile?.specialization || 'Physiotherapist'}
               </p>
             </div>
           </div>
@@ -244,6 +272,16 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
               <span className="text-xs font-bold uppercase tracking-wider">Complete Profile</span>
             </motion.button>
           )}
+
+          {isProfileComplete && (
+            <button
+              onClick={() => setShowProfileModal(true)}
+              className="w-full mt-4 flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+            >
+              <UserCircle className="w-5 h-5" />
+              <span className="text-xs font-medium">Edit Profile</span>
+            </button>
+          )}
         </nav>
         
         <div className="relative p-4 border-t border-white/10">
@@ -257,7 +295,7 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto p-8">
           <div className="max-w-6xl mx-auto space-y-8">
-            <SmartGreeting name={user?.name || 'Doctor'} />
+            <SmartGreeting name={liveUser?.name || user?.name || 'Doctor'} />
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Left: Patient Queue */}
@@ -265,6 +303,12 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                 <h2 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 mb-4">
                   <Clock className="w-4 h-4 text-rose-500" /> Patient Queue
                 </h2>
+                {patients.length === 0 && (
+                  <div className="text-center py-12 text-slate-600 border border-dashed border-white/5 rounded-2xl">
+                    <Users className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p className="text-sm">No patients in queue</p>
+                  </div>
+                )}
                 {patients.map(patient => (
                   <motion.div
                     key={patient.id}
@@ -322,14 +366,7 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <motion.button
-                          whileHover={{ scale: 1.03, boxShadow: '0 8px 32px rgba(225, 29, 72, 0.4)' }}
-                          whileTap={{ scale: 0.97 }}
-                          onClick={handleStartSession}
-                          className="px-6 py-3 bg-gradient-to-r from-rose-600 to-crimson-700 rounded-xl text-xs font-bold shadow-lg shadow-rose-900/30 backdrop-blur-xl border border-white/10 transition-all uppercase tracking-wider"
-                        >
-                          Start Session
-                        </motion.button>
+                        {/* Start Session button REMOVED per requirements */}
                         <motion.button
                           whileHover={{ scale: 1.03, boxShadow: '0 8px 32px rgba(59, 130, 246, 0.4)' }}
                           whileTap={{ scale: 0.97 }}
@@ -341,22 +378,21 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                       </div>
                     </div>
 
-                     {/* Reports Section */}
-                     <motion.div 
-                       initial={{ opacity: 0, y: 20 }}
-                       animate={{ opacity: 1, y: 0 }}
-                       transition={{ delay: 0.2 }}
-                       className="relative rounded-3xl p-8 bg-gradient-to-b from-black/60 to-black/40 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden"
-                     >
-                       <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
-                       <div className="absolute bottom-0 left-0 w-64 h-64 bg-gold/5 rounded-full blur-3xl pointer-events-none" />
-                        
-                       <h4 className="relative text-lg font-bold bg-gold-gradient bg-clip-text text-transparent mb-6 flex items-center gap-3">
-                         <div className="p-2 rounded-lg bg-gold/10 border border-gold/20">
-                           <FileText className="w-5 h-5 text-gold" />
-                         </div>
-                         Medical Reports & Documents
-                       </h4>
+                    {/* Reports Section */}
+                    <motion.div 
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                      className="relative rounded-3xl p-8 bg-gradient-to-b from-black/60 to-black/40 backdrop-blur-xl border border-white/10 shadow-2xl overflow-hidden"
+                    >
+                      <div className="absolute top-0 right-0 w-64 h-64 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+                       
+                      <h4 className="relative text-lg font-bold text-rose-300 mb-6 flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                          <FileText className="w-5 h-5 text-rose-400" />
+                        </div>
+                        Medical Reports & Documents
+                      </h4>
 
                       <div className="space-y-3 mb-6">
                         {selectedPatient.reports && selectedPatient.reports.length > 0 ? (
@@ -381,12 +417,9 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                                     {report.reportName || report.fileName}
                                   </p>
                                   <p className="text-xs text-slate-400">
-                                    {report.uploadedAt?.toLocaleDateString('en-US', {
-                                      day: 'numeric',
-                                      month: 'short',
-                                      year: 'numeric'
-                                    }) || new Date(report.uploadedAt).toLocaleDateString()}
-                                    {report.uploadedBy && ` • by ${report.uploadedBy}`}
+                                    {new Date(report.uploadedAt).toLocaleDateString('en-US', {
+                                      day: 'numeric', month: 'short', year: 'numeric'
+                                    })}
                                   </p>
                                 </div>
                               </div>
@@ -416,47 +449,49 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                     </motion.div>
                   </motion.div>
                 ) : (
-                  <div className="h-full flex items-center justify-center text-slate-600 border-2 border-dashed border-white/5 rounded-3xl">
+                  <div className="h-full flex items-center justify-center text-slate-600 border-2 border-dashed border-white/5 rounded-3xl min-h-[300px]">
                     Select a patient to view details and reports
                   </div>
                 )}
-               </div>
-             </div>
-             
-             {/* Role-Based Quotes Section */}
-             <div className="py-6">
-               <RoleBasedQuotes role="doctor" />
-             </div>
-           </div>
+              </div>
+            </div>
+            
+            <div className="py-6">
+              <RoleBasedQuotes role="doctor" />
+            </div>
+          </div>
         </main>
       </div>
 
-      {/* Profile Completion Modal */}
+      {/* ─── Doctor Profile Modal (Full Form) ─── */}
       <AnimatePresence>
         {showProfileModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl overflow-y-auto">
             <motion.div 
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
               transition={{ type: 'spring', damping: 25 }}
-              className="w-full max-w-lg relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#111] to-black border border-white/10 shadow-2xl"
+              className="w-full max-w-2xl relative overflow-hidden rounded-3xl bg-gradient-to-b from-[#111] to-black border border-white/10 shadow-2xl my-8"
             >
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 bg-rose-500/10 blur-3xl pointer-events-none" />
               
               <div className="relative p-8">
-                <div className="text-center mb-6">
-                  <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-gold/20 to-rose-500/20 border border-gold/30 flex items-center justify-center shadow-lg shadow-gold/10">
-                    <UserCircle className="w-10 h-10 text-gold" />
+                {/* Header */}
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-rose-500/20 to-rose-800/20 border border-rose-500/30 flex items-center justify-center shadow-lg">
+                    <UserCircle className="w-9 h-9 text-rose-400" />
                   </div>
-                  <h2 className="text-2xl font-bold bg-gold-gradient bg-clip-text text-transparent">
-                    Complete Your Profile
+                  <h2 className="text-2xl font-bold text-white">
+                    {isProfileComplete ? 'Edit Your Profile' : 'Complete Your Profile'}
                   </h2>
+                  <p className="text-slate-400 text-sm mt-1">Your info will appear on the landing page</p>
                 </div>
 
-                <div className="text-center mb-6">
-                  <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
-                    Profile Picture
+                {/* Profile Picture */}
+                <div className="text-center mb-8">
+                  <label className="text-[10px] uppercase tracking-[0.2em] font-black text-rose-400 mb-3 block flex items-center justify-center gap-2">
+                    <Camera className="w-3 h-3" /> Profile Picture
                   </label>
                   <div className="flex justify-center">
                     <ImageUpload
@@ -466,14 +501,140 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                       size="lg"
                     />
                   </div>
+                  <p className="text-slate-500 text-xs mt-2">Click to upload photo</p>
                 </div>
 
+                {/* Form Fields */}
+                <div className="space-y-5">
+                  {/* Full Name */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block flex items-center gap-2">
+                      <UserCircle className="w-3 h-3" /> Full Name
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.fullName}
+                      onChange={e => setProfileForm(p => ({ ...p, fullName: e.target.value }))}
+                      placeholder="e.g., Dr. Sarah Ahmed"
+                      className="glass-input w-full"
+                    />
+                  </div>
+
+                  {/* Specialization */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block flex items-center gap-2">
+                      <Briefcase className="w-3 h-3" /> Specialization <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.specialization}
+                      onChange={e => setProfileForm(p => ({ ...p, specialization: e.target.value }))}
+                      placeholder="e.g., Sports Rehabilitation"
+                      className="glass-input w-full"
+                    />
+                  </div>
+
+                  {/* Education */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block flex items-center gap-2">
+                      <BookOpen className="w-3 h-3" /> Education <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.education}
+                      onChange={e => setProfileForm(p => ({ ...p, education: e.target.value }))}
+                      placeholder="e.g., PhD in Physical Therapy, Harvard"
+                      className="glass-input w-full"
+                    />
+                  </div>
+
+                  {/* Qualifications */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block flex items-center gap-2">
+                      <Award className="w-3 h-3" /> Qualifications
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.qualifications}
+                      onChange={e => setProfileForm(p => ({ ...p, qualifications: e.target.value }))}
+                      placeholder="e.g., DPT, MPT, CSCS"
+                      className="glass-input w-full"
+                    />
+                  </div>
+
+                  {/* Experience */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block flex items-center gap-2">
+                      <Activity className="w-3 h-3" /> Experience
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.experience}
+                      onChange={e => setProfileForm(p => ({ ...p, experience: e.target.value }))}
+                      placeholder="e.g., 10 years"
+                      className="glass-input w-full"
+                    />
+                  </div>
+
+                  {/* Timings */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block flex items-center gap-2">
+                      <Clock className="w-3 h-3" /> Timings
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.timings}
+                      onChange={e => setProfileForm(p => ({ ...p, timings: e.target.value }))}
+                      placeholder="e.g., 9:00 AM - 5:00 PM"
+                      className="glass-input w-full"
+                    />
+                  </div>
+
+                  {/* Available Days */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-3 block flex items-center gap-2">
+                      <Calendar className="w-3 h-3" /> Available Days
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {DAYS.map(day => (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => toggleDay(day)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                            availableDays.includes(day)
+                              ? 'bg-rose-600 text-white shadow-lg shadow-rose-900/30'
+                              : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/10'
+                          }`}
+                        >
+                          {day.slice(0, 3)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* About / Bio */}
+                  <div>
+                    <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block flex items-center gap-2">
+                      <Info className="w-3 h-3" /> About / Bio
+                    </label>
+                    <textarea
+                      value={profileForm.about}
+                      onChange={e => setProfileForm(p => ({ ...p, about: e.target.value }))}
+                      placeholder="Brief description about yourself, your approach, and expertise..."
+                      rows={3}
+                      className="glass-input w-full resize-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Submit Button */}
                 <motion.button
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={handleSavePatientProfile}
-                  disabled={savingProfile || !profileImage}
-                  className="w-full py-4 bg-gradient-to-r from-rose-600 to-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-rose-900/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-wider text-sm"
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile || !profileForm.specialization || !profileForm.education}
+                  className="w-full mt-8 py-4 bg-gradient-to-r from-rose-600 to-rose-500 text-white font-bold rounded-2xl shadow-lg shadow-rose-900/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all uppercase tracking-wider text-sm"
                 >
                   {savingProfile ? (
                     <span className="flex items-center justify-center gap-2">
@@ -485,13 +646,13 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                       Saving...
                     </span>
                   ) : (
-                    'Submit Profile'
+                    isProfileComplete ? 'Update Profile' : 'Save Profile'
                   )}
                 </motion.button>
 
                 <button
                   onClick={() => setShowProfileModal(false)}
-                  className="absolute top-4 right-4 p-2 hover:bg-white/10 hover:scale-[1.02] rounded-lg transition-colors"
+                  className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-lg transition-colors"
                 >
                   <X className="w-5 h-5 text-slate-400" />
                 </button>
@@ -523,22 +684,22 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                 </div>
                 <button 
                   onClick={() => setShowExerciseModal(false)}
-                  className="p-2 hover:bg-white/10 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)] rounded-full transition-colors"
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
                 >
                   <X className="w-6 h-6 text-slate-400" />
                 </button>
               </div>
 
-               {/* Therapist Assignment */}
-               <div className="p-6 border-b border-white/5">
-                 <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-3 block">
-                   Assign to Therapist
-                 </label>
-                 <CustomDropdown
-                   options={therapists.map(t => ({
-                     id: t.id,
-                     name: t.name,
-                    avatar: t.profilePicture || t.avatar,
+              {/* Therapist Assignment */}
+              <div className="p-6 border-b border-white/5">
+                <label className="text-[10px] uppercase tracking-[0.2em] font-black text-rose-400 mb-3 block">
+                  Assign to Therapist
+                </label>
+                <CustomDropdown
+                  options={therapists.map(t => ({
+                    id: t.id,
+                    name: t.name,
+                    avatar: t.doctorProfile?.profilePicture || t.profilePicture || t.avatar,
                   }))}
                   value={selectedPatient?.assignedTherapistId || ''}
                   onChange={(therapistId) => {
@@ -551,25 +712,22 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                   }}
                   placeholder="Select a therapist..."
                 />
-               </div>
+              </div>
 
-              {/* Prescription / Clinical Notes */}
+              {/* Prescription Notes */}
               <div className="p-6 border-b border-white/5">
-                <label className="text-[10px] uppercase tracking-[0.2em] font-black text-gold mb-2 block">
+                <label className="text-[10px] uppercase tracking-[0.2em] font-black text-rose-400 mb-2 block">
                   Clinical Notes / Prescription
                 </label>
                 <textarea
                   value={selectedPatient?.prescription || ''}
-                  onChange={(e) => setSelectedPatient({
-                    ...selectedPatient,
-                    prescription: e.target.value
-                  })}
+                  onChange={(e) => setSelectedPatient({ ...selectedPatient, prescription: e.target.value })}
                   placeholder="Write clinical notes or prescription for the patient..."
                   className="glass-input w-full py-3 px-4 text-sm rounded-xl resize-y min-h-[100px]"
                 />
               </div>
 
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto">
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[40vh] overflow-y-auto">
                 {EXERCISES.map((exercise) => {
                   const isSelected = selectedExercises.some(e => e.id === exercise.id);
                   return (
@@ -578,13 +736,13 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                       onClick={() => toggleExercise(exercise)}
                       className={`p-4 rounded-xl cursor-pointer border transition-all ${
                         isSelected 
-                          ? 'border-primary bg-primary/10 shadow-inner' 
-                          : 'border-white/5 bg-white/5 hover:bg-white/10 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(220,38,38,0.3)]'
+                          ? 'border-rose-500 bg-rose-500/10 shadow-inner' 
+                          : 'border-white/5 bg-white/5 hover:bg-white/10 hover:border-rose-500/30'
                       }`}
                     >
                       <div className="flex justify-between items-start">
-                        <h4 className="font-semibold text-white">{exercise.name}</h4>
-                        {isSelected && <CheckCircle className="w-5 h-5 text-primary" />}
+                        <h4 className="font-semibold text-white text-sm">{exercise.name}</h4>
+                        {isSelected && <CheckCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />}
                       </div>
                       <p className="text-xs text-slate-400 mt-1 line-clamp-2">{exercise.description}</p>
                     </div>
@@ -592,12 +750,12 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                 })}
               </div>
 
-              <div className="p-6 border-t border-white/5 bg-black/20 flex gap-4">
+              <div className="p-6 border-t border-white/5 bg-black/20">
                 <button 
                   onClick={handleSaveExercises}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-900/20 hover:shadow-[0_8px_24px_rgba(220,38,38,0.4)]"
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition-all shadow-lg"
                 >
-                  Save Exercise Plan
+                  Save Exercise Plan ({selectedExercises.length} selected)
                 </button>
               </div>
             </motion.div>

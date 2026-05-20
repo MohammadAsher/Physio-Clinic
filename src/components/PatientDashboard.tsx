@@ -63,16 +63,26 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileImage, setProfileImage] = useState<string>(user?.patientProfile?.profilePicture || user?.avatar || '');
   const [profileData, setProfileData] = useState({
+    fullName: user?.name || '',
+    phone: user?.phone || '',
     age: user?.patientProfile?.age || '',
     gender: user?.patientProfile?.gender || '',
+    bloodGroup: user?.patientProfile?.bloodGroup || '',
+    address: user?.patientProfile?.address || '',
+    emergencyContact: user?.patientProfile?.emergencyContact || '',
     medicalHistory: user?.patientProfile?.medicalHistory || '',
   });
 
 useEffect(() => {
     setProfileImage(user?.patientProfile?.profilePicture || user?.avatar || '');
     setProfileData({
+      fullName: user?.name || '',
+      phone: user?.phone || '',
       age: user?.patientProfile?.age || '',
       gender: user?.patientProfile?.gender || '',
+      bloodGroup: user?.patientProfile?.bloodGroup || '',
+      address: user?.patientProfile?.address || '',
+      emergencyContact: user?.patientProfile?.emergencyContact || '',
       medicalHistory: user?.patientProfile?.medicalHistory || '',
     });
   }, [user]);
@@ -104,8 +114,13 @@ useEffect(() => {
             setFreshUserData(data);
             setProfileImage(data?.patientProfile?.profilePicture || data?.avatar || '');
             setProfileData({
+              fullName: data?.name || '',
+              phone: data?.phone || '',
               age: data?.patientProfile?.age || '',
               gender: data?.patientProfile?.gender || '',
+              bloodGroup: data?.patientProfile?.bloodGroup || '',
+              address: data?.patientProfile?.address || '',
+              emergencyContact: data?.patientProfile?.emergencyContact || '',
               medicalHistory: data?.patientProfile?.medicalHistory || '',
             });
           }
@@ -161,18 +176,22 @@ useEffect(() => {
      try {
        const updateData: any = {
          profileCompleted: true,
+         name: profileData.fullName || user?.name,
+         phone: profileData.phone || user?.phone,
          patientProfile: {
            age: Number(profileData.age),
            gender: profileData.gender,
+           bloodGroup: profileData.bloodGroup,
+           address: profileData.address,
+           emergencyContact: profileData.emergencyContact,
            medicalHistory: profileData.medicalHistory,
+           profilePicture: profileImage || '',
          },
        };
-
        if (profileImage) {
          updateData.profilePicture = profileImage;
          updateData.avatar = profileImage;
        }
-
        await updateDoc(doc(db, 'users', user.id), updateData);
        setShowProfileModal(false);
      } catch (err) {
@@ -662,63 +681,143 @@ const renderContent = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="glass-card p-6 max-w-lg w-full"
+              className="glass-card p-8 max-w-lg w-full my-8 relative"
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-white">Complete Your Profile</h2>
-                <button
-                  onClick={() => setShowProfileModal(false)}
-                  className="p-2 hover:bg-white/10 hover:scale-[1.02] hover:shadow-crimson-glow rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-slate-400" />
-                </button>
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+
+              {/* Header */}
+              <div className="text-center mb-6">
+                <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br from-rose-600/20 to-rose-800/20 border border-rose-500/30 flex items-center justify-center">
+                  <UserPlus className="w-7 h-7 text-rose-400" />
+                </div>
+                <h2 className="text-xl font-bold text-white">
+                  {isProfileComplete ? 'Edit Your Profile' : 'Complete Your Profile'}
+                </h2>
+                <p className="text-slate-400 text-xs mt-1">Fill in your details for a personalized experience</p>
               </div>
 
-              <div className="flex justify-center mb-6">
+              {/* Profile Picture */}
+              <div className="flex flex-col items-center mb-6">
                 <ImageUpload
                   currentImage={profileImage}
                   userId={user?.id || ''}
                   onImageUpload={setProfileImage}
                   size="lg"
                 />
+                <p className="text-slate-500 text-xs mt-2">Click to upload profile photo</p>
               </div>
 
               <div className="space-y-4">
+                {/* Full Name */}
                 <div>
-                  <label className="text-slate-400 text-sm mb-2 block">Age</label>
+                  <label className="text-slate-400 text-xs uppercase tracking-wider mb-1.5 block">Full Name</label>
                   <input
-                    type="number"
-                    value={profileData.age}
-                    onChange={(e) => setProfileData({ ...profileData, age: e.target.value })}
-                    placeholder="Enter your age"
+                    type="text"
+                    value={profileData.fullName}
+                    onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })}
+                    placeholder="Your full name"
                     className="glass-input w-full"
                   />
                 </div>
+
+                {/* Phone */}
                 <div>
-                  <label className="text-slate-400 text-sm mb-2 block">Gender</label>
+                  <label className="text-slate-400 text-xs uppercase tracking-wider mb-1.5 block">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={profileData.phone}
+                    onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                    placeholder="e.g., 0300-1234567"
+                    className="glass-input w-full"
+                  />
+                </div>
+
+                {/* Age & Gender row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-slate-400 text-xs uppercase tracking-wider mb-1.5 block">Age <span className="text-rose-400">*</span></label>
+                    <input
+                      type="number"
+                      value={profileData.age}
+                      onChange={(e) => setProfileData({ ...profileData, age: e.target.value })}
+                      placeholder="Your age"
+                      className="glass-input w-full"
+                      min={1}
+                      max={120}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-slate-400 text-xs uppercase tracking-wider mb-1.5 block">Gender <span className="text-rose-400">*</span></label>
+                    <select
+                      value={profileData.gender}
+                      onChange={(e) => setProfileData({ ...profileData, gender: e.target.value })}
+                      className="glass-input w-full"
+                    >
+                      <option value="">Select</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Blood Group */}
+                <div>
+                  <label className="text-slate-400 text-xs uppercase tracking-wider mb-1.5 block">Blood Group</label>
                   <select
-                    value={profileData.gender}
-                    onChange={(e) => setProfileData({ ...profileData, gender: e.target.value })}
+                    value={profileData.bloodGroup}
+                    onChange={(e) => setProfileData({ ...profileData, bloodGroup: e.target.value })}
                     className="glass-input w-full"
                   >
-                    <option value="">Select gender</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
+                    <option value="">Select blood group</option>
+                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => (
+                      <option key={bg} value={bg}>{bg}</option>
+                    ))}
                   </select>
                 </div>
+
+                {/* Address */}
                 <div>
-                  <label className="text-slate-400 text-sm mb-2 block">Medical History</label>
+                  <label className="text-slate-400 text-xs uppercase tracking-wider mb-1.5 block">Address</label>
+                  <input
+                    type="text"
+                    value={profileData.address}
+                    onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+                    placeholder="Your home address"
+                    className="glass-input w-full"
+                  />
+                </div>
+
+                {/* Emergency Contact */}
+                <div>
+                  <label className="text-slate-400 text-xs uppercase tracking-wider mb-1.5 block">Emergency Contact</label>
+                  <input
+                    type="tel"
+                    value={profileData.emergencyContact}
+                    onChange={(e) => setProfileData({ ...profileData, emergencyContact: e.target.value })}
+                    placeholder="Emergency contact number"
+                    className="glass-input w-full"
+                  />
+                </div>
+
+                {/* Medical History */}
+                <div>
+                  <label className="text-slate-400 text-xs uppercase tracking-wider mb-1.5 block">Medical History</label>
                   <textarea
                     value={profileData.medicalHistory}
                     onChange={(e) => setProfileData({ ...profileData, medicalHistory: e.target.value })}
-                    placeholder="List any existing conditions, allergies, or past injuries..."
+                    placeholder="List any existing conditions, allergies, past injuries, or ongoing medications..."
                     rows={4}
                     className="glass-input w-full resize-none"
                   />
@@ -732,7 +831,7 @@ const renderContent = () => {
                 disabled={savingProfile || !profileData.age || !profileData.gender}
                 className="w-full mt-6 py-3 rounded-xl premium-gradient text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-crimson-intense"
               >
-                {savingProfile ? 'Saving...' : 'Save Profile'}
+                {savingProfile ? 'Saving...' : (isProfileComplete ? 'Update Profile' : 'Save Profile')}
               </motion.button>
             </motion.div>
           </motion.div>

@@ -7,6 +7,7 @@ export interface Service {
   price: string;
   duration: string;
   benefits: string[];
+  icon?: string;
   iconImage?: string; // Path to small icon image for badge
 }
 

@@ -7,7 +7,7 @@ export interface User {
   avatar?: string;
   profilePicture?: string;
   createdAt: Date;
-  status?: 'unassigned' | 'assigned' | 'waiting' | 'consulting' | 'completed';
+  status?: 'unassigned' | 'assigned' | 'waiting' | 'consulting' | 'completed' | 'checked' | 'under_treatment';
   assignedDoctorId?: string;
   assignedDoctorName?: string;
   assignedTherapistId?: string;
@@ -22,16 +22,25 @@ export interface User {
   submittedTrxID?: string;
   profileCompleted?: boolean;
   doctorProfile?: {
+    fullName?: string;
     education?: string;
+    qualifications?: string;
     experience?: string;
     specialization?: string;
     availableDays?: string[];
     timings?: string;
+    consultationFee?: number;
+    about?: string;
     profilePicture?: string;
   };
   patientProfile?: {
+    fullName?: string;
     age?: number;
     gender?: string;
+    phone?: string;
+    emergencyContact?: string;
+    address?: string;
+    primaryConcern?: string;
     medicalHistory?: string;
     profilePicture?: string;
   };
@@ -75,7 +84,7 @@ export interface Patient {
   age?: number;
   gender?: 'male' | 'female' | 'other';
   address?: string;
-  status: 'waiting' | 'consulting' | 'completed';
+  status: 'waiting' | 'consulting' | 'completed' | 'checked' | 'under_treatment';
   checkInTime: any;
   token: any;
   isMember?: boolean;
@@ -87,6 +96,7 @@ export interface Patient {
   exercises?: any[];
   prescribedExercises?: any[];
   lastUpdated?: any;
+  checkedAt?: any;
   totalFees?: number;
   profilePicture?: string;
   avatar?: string;
@@ -164,4 +174,4 @@ export interface Service {
 export type AuthView = 'landing' | 'login' | 'signup';
 export type DashboardView = 'patient' | 'doctor';
 export type PatientView = 'overview' | 'reports';
-export type DoctorView = 'waiting' | 'consultation' | 'patients';
+export type DoctorView = 'waiting' | 'consultation' | 'patients' | 'recent';

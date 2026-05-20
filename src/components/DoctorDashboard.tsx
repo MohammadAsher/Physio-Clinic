@@ -6,7 +6,7 @@ import { Users, Clock, Activity, CheckCircle, ChevronRight, X, UserPlus } from '
 import { Patient, Exercise, User } from '@/types';
 import { EXERCISES } from '@/lib/data';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import AnalyticsSuite from './AnalyticsSuite';
 
 interface DoctorDashboardProps {
@@ -31,32 +31,20 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
     timings: currentDoctor?.doctorProfile?.timings || '9:00 AM - 5:00 PM',
   });
   const [availableDays, setAvailableDays] = useState<string[]>(currentDoctor?.doctorProfile?.availableDays || ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']);
+  const [isCompletingSession, setIsCompletingSession] = useState(false);
 
   const isProfileComplete = currentDoctor?.profileCompleted && currentDoctor?.doctorProfile?.education;
 
-  const handleSaveProfile = async () => {
-    if (!currentDoctor?.id) return;
-    setSavingProfile(true);
-    try {
-      await updateDoc(doc(db, 'users', currentDoctor.id), {
-        profileCompleted: true,
-        doctorProfile: {
-          education: profileData.education,
-          experience: profileData.experience,
-          specialization: profileData.specialization,
-          availableDays,
-          timings: profileData.timings,
-        },
-      });
-      setShowProfileModal(false);
-    } catch (err) {
-      console.error('Error saving profile:', err);
-    }
-    setSavingProfile(false);
-  };
-
   const waitingPatients = patients.filter(p => p.status === 'waiting');
   const consultingPatients = patients.filter(p => p.status === 'consulting');
+  const recentPatients = patients
+    .filter(p => p.status === 'checked' && p.assignedDoctorId === currentDoctor?.id)
+    .sort((a, b) => {
+      // Sort by completion timestamp, newest first
+      const dateA = a.checkedAt ? new Date(a.checkedAt).getTime() : 0;
+      const dateB = b.checkedAt ? new Date(b.checkedAt).getTime() : 0;
+      return dateB - dateA;
+    });
 
   const handleSelectPatient = (patient: Patient) => {
     setSelectedPatient(patient);
@@ -70,42 +58,49 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
     setShowExerciseModal(true);
   };
 
-  const handleCompleteConsultation = async () => {
-    if (!selectedPatient || !currentDoctor?.id) return;
-    
-    const exerciseNames = selectedExercises.map(e => e.name);
-    const prescription = {
-      diagnosis: diagnosis || 'General checkup',
-      exercises: exerciseNames,
-      notes: doctorNotes,
-    };
-    
-    const updated = { 
-      ...selectedPatient, 
-      status: 'completed' as const,
-      exercises: selectedExercises,
-      prescription,
-    };
-    
-    try {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const { db } = await import('@/lib/firebase');
-      await updateDoc(doc(db, 'users', selectedPatient.id), {
-        status: 'completed',
-        exercises: selectedExercises,
-        prescription,
-      });
-    } catch (err) {
-      console.error('Error saving prescription:', err);
-    }
-    
-    onUpdatePatient(updated as any);
-    setSelectedPatient(null);
-    setShowExerciseModal(false);
-    setDoctorNotes('');
-    setDiagnosis('');
-    setPrescribedExercises('');
-  };
+   const handleCompleteConsultation = async () => {
+     if (!selectedPatient || !currentDoctor?.id) return;
+     
+     setIsCompletingSession(true);
+     const exerciseNames = selectedExercises.map(e => e.name);
+     const prescription = {
+       diagnosis: diagnosis || 'General checkup',
+       exercises: exerciseNames,
+       notes: doctorNotes,
+     };
+     
+     const updated = { 
+       ...selectedPatient, 
+       status: 'checked' as const,
+       exercises: selectedExercises,
+       prescription,
+       assignedDoctorId: currentDoctor.id,
+       checkedAt: new Date().toISOString(),
+     };
+     
+     try {
+       const { doc, updateDoc } = await import('firebase/firestore');
+       const { db } = await import('@/lib/firebase');
+       await updateDoc(doc(db, 'users', selectedPatient.id), {
+         status: 'checked',
+         exercises: selectedExercises,
+         prescription,
+         assignedDoctorId: currentDoctor.id,
+         checkedAt: serverTimestamp(),
+       });
+     } catch (err) {
+       console.error('Error completing session:', err);
+     } finally {
+       setIsCompletingSession(false);
+     }
+     
+     onUpdatePatient(updated as any);
+     setSelectedPatient(null);
+     setShowExerciseModal(false);
+     setDoctorNotes('');
+     setDiagnosis('');
+     setPrescribedExercises('');
+   };
 
   const toggleExercise = (exercise: Exercise) => {
     setSelectedExercises(prev => {
@@ -115,6 +110,29 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
       }
       return [...prev, exercise];
     });
+  };
+
+  const handleSaveProfile = async () => {
+    if (!currentDoctor?.id) return;
+    setSavingProfile(true);
+    try {
+      await updateDoc(doc(db, 'users', currentDoctor.id), {
+        profileCompleted: true,
+        doctorProfile: {
+          education: profileData.education,
+          qualifications: profileData.education,
+          experience: profileData.experience,
+          specialization: profileData.specialization,
+          timings: profileData.timings,
+          availableDays,
+        },
+      });
+      setShowProfileModal(false);
+    } catch (err) {
+      console.error('Error saving doctor profile:', err);
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const staggerContainer = {
@@ -255,51 +273,61 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
                   </button>
                 </div>
                 
-                {(selectedPatient as any).medicalCondition && (
-                  <div className="mb-4">
-                    <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">Condition</p>
-                    <p className="text-slate-300 text-sm">{(selectedPatient as any).medicalCondition}</p>
-                  </div>
-                )}
-                
-                <div>
-                  <p className="text-slate-400 text-xs uppercase tracking-wider mb-2">Assigned Exercises</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedExercises.length > 0 ? (
-                      selectedExercises.map(ex => (
-                        <span key={ex.id} className="px-3 py-1 rounded-full bg-primary/20 text-primary-light text-sm">
-                          {ex.name}
-                        </span>
-                      ))
-                    ) : (
-                      <p className="text-slate-500 text-sm italic">No exercises assigned yet</p>
-                    )}
-                  </div>
-                </div>
-              </div>
+                 {(selectedPatient as any).medicalCondition && (
+                   <div className="mb-4">
+                     <p className="text-slate-400 text-xs uppercase tracking-wider mb-1">Condition</p>
+                     <p className="text-slate-300 text-sm">{(selectedPatient as any).medicalCondition}</p>
+                   </div>
+                 )}
+                 
+                 <div>
+                   <p className="text-slate-400 text-xs uppercase tracking-wider mb-2">Assigned Exercises</p>
+                   <div className="flex flex-wrap gap-2">
+                     {selectedExercises.length > 0 ? (
+                       selectedExercises.map(ex => (
+                         <span key={ex.id} className="px-3 py-1 rounded-full bg-primary/20 text-primary-light text-sm">
+                           {ex.name}
+                         </span>
+                       ))
+                     ) : (
+                       <p className="text-slate-500 text-sm italic">No exercises assigned yet</p>
+                     )}
+                   </div>
+                 </div>
+               </div>
 
-              {!showExerciseModal ? (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleStartConsultation}
-                  className="glass-button w-full flex items-center justify-center gap-2"
-                >
-                  <span>Start Consultation & Assign Exercises</span>
-                  <ChevronRight className="w-5 h-5" />
-                </motion.button>
-              ) : (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={handleCompleteConsultation}
-                  className="glass-button w-full bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center gap-2"
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  <span>Complete Consultation</span>
-                </motion.button>
-              )}
-            </motion.div>
+               {!showExerciseModal ? (
+                 <motion.button
+                   whileHover={{ scale: 1.02 }}
+                   whileTap={{ scale: 0.98 }}
+                   onClick={handleStartConsultation}
+                   className="glass-button w-full flex items-center justify-center gap-2"
+                 >
+                   <span>Start Consultation & Assign Exercises</span>
+                   <ChevronRight className="w-5 h-5" />
+                 </motion.button>
+               ) : (
+                 <motion.button
+                   whileHover={{ scale: 1.02 }}
+                   whileTap={{ scale: 0.98 }}
+                   onClick={handleCompleteConsultation}
+                   disabled={isCompletingSession}
+                   className="glass-button w-full bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center gap-2"
+                 >
+                   {isCompletingSession ? (
+                     <>
+                       <span className="mr-2">Completing...</span>
+                       <CheckCircle className="w-5 h-5 text-slate-400 animate-spin" />
+                     </>
+                   ) : (
+                     <>
+                       <CheckCircle className="w-5 h-5" />
+                       <span>Complete Session</span>
+                     </>
+                   )}
+                 </motion.button>
+               )}
+             </motion.div>
           ) : (
             <div className="text-center py-12 text-slate-500">
               <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -307,9 +335,61 @@ export default function DoctorDashboard({ patients, onUpdatePatient, currentDoct
             </div>
           )}
         </motion.div>
-      </div>
+       </div>
 
-      {/* Analytics Suite for Doctors */}
+       {/* Recent Patients Section */}
+       <motion.div
+         variants={staggerContainer}
+         className="premium-glass p-6"
+       >
+         <div className="flex items-center gap-3 mb-6">
+           <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+             <CheckCircle className="w-5 h-5 text-emerald-400" />
+           </div>
+           <div>
+             <h2 className="text-xl font-semibold text-white">Recent Patients</h2>
+             <p className="text-slate-400 text-sm">{recentPatients.length} completed today</p>
+           </div>
+         </div>
+
+         <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+           <AnimatePresence>
+             {recentPatients.map((patient) => (
+               <motion.div
+                 key={patient.id}
+                 variants={slideUpVariant}
+                 whileHover={{ scale: 1.02, y: -4 }}
+                 whileTap={{ scale: 0.98 }}
+                 className={`premium-glass p-4 cursor-pointer ${
+                   selectedPatient?.id === patient.id 
+                     ? 'ring-2 ring-primary bg-primary/20' 
+                     : ''
+                 }`}
+               >
+                 <div className="flex items-center justify-between">
+                   <div>
+                     <p className="text-white font-medium">{patient.name}</p>
+                     <p className="text-slate-400 text-sm">Token: {patient.token}</p>
+                   </div>
+                   <div className="flex items-center gap-2 text-slate-400">
+                     <Clock className="w-4 h-4" />
+                     <span className="text-sm">
+                       {patient.checkedAt ? new Date(patient.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                     </span>
+                   </div>
+                 </div>
+               </motion.div>
+             ))}
+           </AnimatePresence>
+           {recentPatients.length === 0 && (
+             <div className="text-center py-8 text-slate-500">
+               No completed sessions yet
+             </div>
+           )}
+         </div>
+       </motion.div>
+
+       {/* Analytics Suite for Doctors */}
       <AnalyticsSuite 
         isDoctor={true} 
         doctorData={{

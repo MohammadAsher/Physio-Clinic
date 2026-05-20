@@ -16,6 +16,7 @@ interface DoctorData {
   phone: string;
   role: 'doctor';
   avatar?: string;
+  profilePicture?: string;
   profileCompleted?: boolean;
   doctorProfile?: {
     education?: string;
@@ -23,6 +24,9 @@ interface DoctorData {
     specialization?: string;
     availableDays?: string[];
     timings?: string;
+    about?: string;
+    qualifications?: string;
+    profilePicture?: string;
   };
 }
 
@@ -573,14 +577,27 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="relative flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-rose-600 to-crimson-700 flex items-center justify-center border-2 border-rose-400/60 shadow-lg shadow-rose-900/20">
-                    <span className="text-white font-bold text-xl">
-                      {doctor.name.split(' ')[1]?.charAt(0) || doctor.name.charAt(0)}
-                    </span>
+                  <div className="w-16 h-16 rounded-full border-2 border-rose-400/60 shadow-lg shadow-rose-900/20 overflow-hidden flex-shrink-0">
+                    {(doctor.doctorProfile?.profilePicture || doctor.avatar || doctor.profilePicture) ? (
+                      <img
+                        src={doctor.doctorProfile?.profilePicture || doctor.avatar || doctor.profilePicture}
+                        alt={doctor.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-rose-600 to-crimson-700 flex items-center justify-center">
+                        <span className="text-white font-bold text-xl">
+                          {doctor.name.split(' ')[1]?.charAt(0) || doctor.name.charAt(0)}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <h3 className="text-white font-semibold text-lg">{doctor.name}</h3>
                     <p className="text-rose-400 text-sm">{doctor.doctorProfile?.specialization}</p>
+                    {doctor.doctorProfile?.qualifications && (
+                      <p className="text-slate-500 text-xs mt-0.5">{doctor.doctorProfile.qualifications}</p>
+                    )}
                   </div>
                 </div>
                 <p className="text-slate-400 text-sm mb-3">{doctor.doctorProfile?.education}</p>
@@ -629,19 +646,38 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-                    className="w-28 h-28 mb-4 rounded-full bg-gradient-to-br from-rose-600 to-crimson-700 flex items-center justify-center border-2 border-rose-400/60 shadow-lg shadow-rose-900/30"
+                    className="w-28 h-28 mb-4 rounded-full border-2 border-rose-400/60 shadow-lg shadow-rose-900/30 overflow-hidden"
                   >
-                    <span className="text-white font-bold text-4xl">
-                      {selectedDoctor.name.split(' ')[1]?.charAt(0) || selectedDoctor.name.charAt(0)}
-                    </span>
+                    {(selectedDoctor.doctorProfile?.profilePicture || selectedDoctor.avatar || selectedDoctor.profilePicture) ? (
+                      <img
+                        src={selectedDoctor.doctorProfile?.profilePicture || selectedDoctor.avatar || selectedDoctor.profilePicture}
+                        alt={selectedDoctor.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-rose-600 to-crimson-700 flex items-center justify-center">
+                        <span className="text-white font-bold text-4xl">
+                          {selectedDoctor.name.split(' ')[1]?.charAt(0) || selectedDoctor.name.charAt(0)}
+                        </span>
+                      </div>
+                    )}
                   </motion.div>
                   <h2 className="text-2xl font-bold text-white mb-1">{selectedDoctor.name}</h2>
                   <p className="text-rose-400 font-medium">{selectedDoctor.doctorProfile?.specialization}</p>
+                  {selectedDoctor.doctorProfile?.qualifications && (
+                    <p className="text-slate-500 text-xs mt-1">{selectedDoctor.doctorProfile.qualifications}</p>
+                  )}
                 </div>
 
-                <div className="space-y-4 mb-6">
+                <div className="space-y-3 mb-6">
+                  {selectedDoctor.doctorProfile?.about && (
+                    <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold mb-1">About</p>
+                      <p className="text-slate-300 text-sm leading-relaxed">{selectedDoctor.doctorProfile.about}</p>
+                    </div>
+                  )}
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
-                    <Award className="w-5 h-5 text-rose-400" />
+                    <Award className="w-5 h-5 text-rose-400 flex-shrink-0" />
                     <div className="text-left">
                       <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Education</p>
                       <p className="text-white text-sm">{selectedDoctor.doctorProfile?.education}</p>
@@ -649,26 +685,26 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
                   </div>
                   
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
-                    <UserCircle className="w-5 h-5 text-rose-400" />
+                    <UserCircle className="w-5 h-5 text-rose-400 flex-shrink-0" />
                     <div className="text-left">
                       <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Experience</p>
-                      <p className="text-white text-sm">{selectedDoctor.doctorProfile?.experience}</p>
+                      <p className="text-white text-sm">{selectedDoctor.doctorProfile?.experience || 'Not specified'}</p>
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
-                    <CalendarCheck className="w-5 h-5 text-rose-400" />
+                    <CalendarCheck className="w-5 h-5 text-rose-400 flex-shrink-0" />
                     <div className="text-left">
                       <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Availability</p>
-                      <p className="text-white text-sm">{selectedDoctor.doctorProfile?.availableDays?.join(', ')}</p>
+                      <p className="text-white text-sm">{selectedDoctor.doctorProfile?.availableDays?.join(', ') || 'Not specified'}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10">
-                    <Clock className="w-5 h-5 text-rose-400" />
+                    <Clock className="w-5 h-5 text-rose-400 flex-shrink-0" />
                     <div className="text-left">
                       <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Timings</p>
-                      <p className="text-white text-sm">{selectedDoctor.doctorProfile?.timings}</p>
+                      <p className="text-white text-sm">{selectedDoctor.doctorProfile?.timings || 'Not specified'}</p>
                     </div>
                   </div>
                 </div>

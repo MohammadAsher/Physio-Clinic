@@ -214,10 +214,8 @@ export default function AnalyticsSuite({ isAdmin = false, isDoctor = false, doct
                     endAngle={450}
                   >
                     <RadialBar
-                      minAngle={15}
                       label={{ fill: '#fff', position: 'insideStart' }}
                       background
-                      clockWise={true}
                       dataKey="value"
                     />
                     <Tooltip
@@ -263,9 +261,7 @@ export default function AnalyticsSuite({ isAdmin = false, isDoctor = false, doct
                     endAngle={450}
                   >
                     <RadialBar
-                      minAngle={15}
                       background
-                      clockWise={true}
                       dataKey="value"
                     />
                     <Tooltip

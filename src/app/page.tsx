@@ -49,13 +49,19 @@ interface DoctorData {
   phone: string;
   role: 'doctor';
   avatar?: string;
+  profilePicture?: string;
   profileCompleted?: boolean;
   doctorProfile?: {
+    fullName?: string;
     education?: string;
+    qualifications?: string;
     experience?: string;
     specialization?: string;
     availableDays?: string[];
     timings?: string;
+    consultationFee?: number;
+    about?: string;
+    profilePicture?: string;
   };
 }
 
@@ -81,6 +87,8 @@ export default function Home() {
                email: userData.email,
                phone: userData.phone || '',
                role: userData.role || 'patient',
+               avatar: userData.avatar,
+               profilePicture: userData.profilePicture,
                createdAt: userData.createdAt?.toDate() || new Date(),
                status: userData.status,
                assignedDoctorId: userData.assignedDoctorId,
@@ -109,11 +117,13 @@ export default function Home() {
     return () => unsubscribe();
   }, []);
 
+  // ✅ UPDATED: Doctor now only sees patients assigned to them by admin
   useEffect(() => {
     if (currentUser?.role === 'doctor') {
       const patientsQuery = query(
         collection(db, 'users'),
-        where('role', '==', 'patient')
+        where('role', '==', 'patient'),
+        where('assignedDoctorId', '==', currentUser.id)  // ← THIS IS THE KEY CHANGE
       );
 
       const unsubscribe = onSnapshot(patientsQuery, (snapshot) => {
@@ -140,7 +150,7 @@ export default function Home() {
 
       return () => unsubscribe();
     }
-  }, [currentUser?.role]);
+  }, [currentUser?.role, currentUser?.id]); // ✅ UPDATED: added currentUser?.id here too
 
   useEffect(() => {
     if (currentUser?.role === 'patient') {
@@ -149,12 +159,18 @@ export default function Home() {
           const data = docSnap.data();
           setCurrentUser(prev => prev ? {
             ...prev,
+            name: data.name || prev.name,
+            phone: data.phone || prev.phone,
+            avatar: data.avatar,
+            profilePicture: data.profilePicture,
             status: data.status,
             assignedDoctorId: data.assignedDoctorId,
             assignedDoctorName: data.assignedDoctorName,
             isMember: data.isMember,
             membershipStatus: data.membershipStatus,
             membershipType: data.membershipType,
+            profileCompleted: data.profileCompleted,
+            patientProfile: data.patientProfile,
           } : null);
         }
       });
@@ -162,6 +178,27 @@ export default function Home() {
       return () => unsubscribe();
     }
    }, [currentUser?.role, currentUser?.id]);
+
+  useEffect(() => {
+    if (currentUser?.role === 'doctor') {
+      const unsubscribe = onSnapshot(doc(db, 'users', currentUser.id), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setCurrentUser(prev => prev ? {
+            ...prev,
+            name: data.name || prev.name,
+            phone: data.phone || prev.phone,
+            avatar: data.avatar,
+            profilePicture: data.profilePicture,
+            profileCompleted: data.profileCompleted,
+            doctorProfile: data.doctorProfile,
+          } : null);
+        }
+      });
+
+      return () => unsubscribe();
+    }
+  }, [currentUser?.role, currentUser?.id]);
 
    useEffect(() => {
      if (currentUser?.role === 'admin') {
@@ -212,6 +249,7 @@ export default function Home() {
           phone: data.phone || '',
           role: 'doctor',
           avatar: data.avatar,
+          profilePicture: data.profilePicture,
           profileCompleted: data.profileCompleted || false,
           doctorProfile: data.doctorProfile,
         };
@@ -277,7 +315,7 @@ export default function Home() {
     );
   };
 
-  const handleAssignRole = async (userId: string, role: 'patient' | 'doctor') => {
+  const handleAssignRole = async (userId: string, role: 'patient' | 'doctor' | 'therapist') => {
     try {
       await updateDoc(doc(db, 'users', userId), { role });
     } catch (err) {
