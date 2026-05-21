@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, FileText, ArrowRight, CheckCircle, Clock, Dumbbell, ChevronRight, ChevronLeft, Check } from 'lucide-react';
+import { Users, FileText, ArrowRight, CheckCircle, Clock, Dumbbell, ChevronRight, ChevronLeft, Check, X } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, query, where, onSnapshot, updateDoc, doc, arrayUnion, serverTimestamp } from 'firebase/firestore';
 import { User, Patient } from '@/types';
@@ -42,33 +42,33 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
     );
 
     const unsubscribe = onSnapshot(patientsQuery, (snapshot) => {
-       const fetchedPatients: PatientWithExercises[] = snapshot.docs.map(doc => {
-         const data = doc.data();
-         return {
-           id: doc.id,
-           userId: doc.id,
-           name: data.name || '',
-           phone: data.phone || '',
-           email: data.email || '',
-           age: data.age,
-           gender: data.gender,
-           status: data.status || 'waiting',
-           checkInTime: data.checkInTime || null,
-           token: data.token || null,
-           isMember: data.isMember || false,
-           membershipStatus: data.membershipStatus || '',
-           assignedDoctorId: data.assignedDoctorId,
-           assignedDoctorName: data.assignedDoctorName,
-           assignedTherapistId: data.assignedTherapistId,
-           assignedTherapistName: data.assignedTherapistName,
-           assignedExercises: data.assignedExercises || data.prescribedExercises || [],
-           prescription: data.prescription || '',
-           lastUpdated: data.lastUpdated?.toDate() || null,
-           totalSessions: data.totalSessions || 0,
-           completedSessions: data.completedSessions || 0,
-           remainingSessions: data.remainingSessions || 0,
-         };
-       });
+      const fetchedPatients: PatientWithExercises[] = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: doc.id,
+          name: data.name || '',
+          phone: data.phone || '',
+          email: data.email || '',
+          age: data.age,
+          gender: data.gender,
+          status: data.status || 'waiting',
+          checkInTime: data.checkInTime || null,
+          token: data.token || null,
+          isMember: data.isMember || false,
+          membershipStatus: data.membershipStatus || '',
+          assignedDoctorId: data.assignedDoctorId,
+          assignedDoctorName: data.assignedDoctorName,
+          assignedTherapistId: data.assignedTherapistId,
+          assignedTherapistName: data.assignedTherapistName,
+          assignedExercises: data.assignedExercises || data.prescribedExercises || [],
+          prescription: data.prescription || '',
+          lastUpdated: data.lastUpdated?.toDate() || null,
+          totalSessions: data.totalSessions || 0,
+          completedSessions: data.completedSessions || 0,
+          remainingSessions: data.remainingSessions || 0,
+        };
+      });
       setPatients(fetchedPatients);
       setIsLoading(false);
     });
@@ -86,28 +86,18 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
   const handleCompleteSession = async (patient: PatientWithExercises) => {
     if (!patient.id) return;
     
-    const confirmed = window.confirm(
-      `Are you sure the session is complete for ${patient.name}?\n\n` +
-      `This will increment completed sessions from ${patient.completedSessions} to ${(patient.completedSessions || 0) + 1}.`
-    );
-
-    if (!confirmed) return;
-
     setCompletingSession(patient.id);
 
     try {
-      // Calculate new remaining sessions
       const newCompleted = (patient.completedSessions || 0) + 1;
       const newTotal = patient.totalSessions || 0;
       const newRemaining = Math.max(0, newTotal - newCompleted);
 
-      // Update patient document with increment and activity log
       const patientRef = doc(db, 'users', patient.id);
       await updateDoc(patientRef, {
         completedSessions: newCompleted,
         remainingSessions: newRemaining,
         lastUpdated: serverTimestamp(),
-        // Add activity log entry
         activityLog: arrayUnion({
           type: 'session_completed',
           therapistId: user?.id,
@@ -141,29 +131,29 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
         <motion.div
           animate={{ rotate: 360 }}
           transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-          className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full"
+          className="w-10 h-10 border-4 border-sky-500 border-t-transparent rounded-full"
         />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-slate-950 text-slate-200 antialiased overflow-x-hidden">
       {/* Toast Notification */}
       <AnimatePresence>
         {toast.show && (
           <motion.div
-            initial={{ opacity: 0, y: -50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -50 }}
-            className="fixed top-4 right-4 z-50 px-6 py-3 rounded-xl bg-emerald-500/90 text-white font-semibold shadow-lg shadow-emerald-900/30 backdrop-blur-xl flex items-center gap-2"
+            initial={{ opacity: 0, y: -20, x: '50%' }}
+            animate={{ opacity: 1, y: 0, x: '0%' }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-4 right-4 z-50 px-4 py-3 rounded-xl bg-emerald-500 text-white font-semibold shadow-lg shadow-emerald-950/40 backdrop-blur-md flex items-center gap-2 max-w-[calc(100vw-32px)] text-sm"
           >
-            <Check className="w-5 h-5" />
-            {toast.message}
+            <Check className="w-4 h-4 shrink-0" />
+            <span className="truncate">{toast.message}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -175,39 +165,37 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
             onClick={() => setConfirmPatient(null)}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-md bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-2xl"
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-sm bg-slate-900 rounded-2xl border border-slate-800 p-5 sm:p-6 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-center">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center">
-                  <Clock className="w-8 h-8 text-amber-400" />
+                <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-amber-400" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Confirm Session Complete</h3>
-                <p className="text-slate-400 mb-4">
-                  Mark session as complete for <span className="text-white font-semibold">{confirmPatient.name}</span>?
+                <h3 className="text-lg font-bold text-white mb-1">Confirm Session Complete</h3>
+                <p className="text-xs sm:text-sm text-slate-400 mb-3">
+                  Mark session as complete for <span className="text-white font-semibold block sm:inline">{confirmPatient.name}</span>?
                 </p>
-                <p className="text-sm text-slate-500 mb-6">
-                  Current progress: {confirmPatient.completedSessions || 0} / {confirmPatient.totalSessions || 0} sessions
-                </p>
+                <div className="bg-slate-950/60 rounded-xl py-2 px-3 inline-block text-xs text-slate-400 mb-5 border border-slate-800/60">
+                  Current progress: <span className="text-sky-400 font-bold">{confirmPatient.completedSessions || 0}</span> / {confirmPatient.totalSessions || 0} sessions
+                </div>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setConfirmPatient(null)}
-                    className="flex-1 px-4 py-3 rounded-xl bg-slate-800 text-slate-400 hover:bg-slate-700 transition-colors"
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors text-xs font-semibold uppercase tracking-wider"
                   >
                     Cancel
                   </button>
                   <button
-                    onClick={() => {
-                      handleCompleteSession(confirmPatient);
-                    }}
-                    className="flex-1 px-4 py-3 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-900/30"
+                    onClick={() => handleCompleteSession(confirmPatient)}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-lg shadow-emerald-950/20 text-xs font-semibold uppercase tracking-wider"
                   >
                     Confirm
                   </button>
@@ -218,24 +206,24 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
         )}
       </AnimatePresence>
 
-      {/* Header */}
-      <header className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-800 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center">
-              <Dumbbell className="w-5 h-5 text-sky-400" />
+      {/* Header Navbar */}
+      <header className="bg-slate-900/60 backdrop-blur-md border-b border-slate-900 sticky top-0 z-40 px-4 sm:px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+              <Dumbbell className="w-4 h-4 text-sky-400" />
             </div>
-            <h1 className="text-xl font-bold text-white">Therapist Portal</h1>
+            <h1 className="text-base sm:text-lg font-bold text-white truncate tracking-tight">Therapist Portal</h1>
           </div>
           
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-slate-400 text-sm">Welcome back</p>
-              <p className="text-white font-semibold">{user.name}</p>
+          <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+            <div className="text-right hidden sm:block min-w-0">
+              <p className="text-slate-500 text-[10px] uppercase font-bold tracking-wider">Welcome back</p>
+              <p className="text-white text-sm font-semibold truncate max-w-[120px]">{user.name}</p>
             </div>
             <button
               onClick={onLogout}
-              className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors text-sm font-medium"
+              className="px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/10 transition-colors text-xs font-bold uppercase tracking-wide"
             >
               Sign Out
             </button>
@@ -243,355 +231,293 @@ export default function TherapistDashboard({ user, onLogout }: TherapistDashboar
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Stats Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8"
-        >
-          <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-800">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-sky-500/20 flex items-center justify-center">
-                <Users className="w-6 h-6 text-sky-400" />
-              </div>
-              <div>
-                <p className="text-slate-400 text-sm">Assigned Patients</p>
-                <p className="text-3xl font-bold text-white">{patients.length}</p>
-              </div>
+      {/* Main Container Workspace */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
+        
+        {/* Responsive Stats Layout Grid */}
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+          <div className="bg-slate-900/30 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-slate-900 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+              <Users className="w-5 h-5 text-sky-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Assigned Patients</p>
+              <p className="text-2xl sm:text-3xl font-black text-white mt-0.5">{patients.length}</p>
             </div>
           </div>
 
-          <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-800">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-sky-500/20 flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-sky-400" />
-              </div>
-              <div>
-                <p className="text-slate-400 text-sm">With Exercise Plans</p>
-                <p className="text-3xl font-bold text-white">
-                  {patients.filter(p => hasExercises(p)).length}
-                </p>
-              </div>
+          <div className="bg-slate-900/30 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-slate-900 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
+              <CheckCircle className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">With Exercise Plans</p>
+              <p className="text-2xl sm:text-3xl font-black text-white mt-0.5">
+                {patients.filter(p => hasExercises(p)).length}
+              </p>
             </div>
           </div>
 
-          <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl p-6 border border-slate-800">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-sky-500/20 flex items-center justify-center">
-                <Clock className="w-6 h-6 text-sky-400" />
-              </div>
-              <div>
-                <p className="text-slate-400 text-sm">Awaiting Plans</p>
-                <p className="text-3xl font-bold text-white">
-                  {patients.filter(p => !hasExercises(p)).length}
-                </p>
-              </div>
+          <div className="bg-slate-900/30 backdrop-blur-xl rounded-2xl p-4 sm:p-5 border border-slate-900 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5 text-amber-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-wider">Awaiting Plans</p>
+              <p className="text-2xl sm:text-3xl font-black text-white mt-0.5">
+                {patients.filter(p => !hasExercises(p)).length}
+              </p>
             </div>
           </div>
-        </motion.div>
+        </section>
 
-        {/* Role-Based Quotes Section */}
-        <div className="py-6">
+        {/* Quotes Integration Row */}
+        <div className="w-full overflow-hidden rounded-2xl border border-slate-900 bg-slate-900/10 px-2 sm:px-4">
           <RoleBasedQuotes role="therapist" />
         </div>
 
-        {/* Patient List */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="mb-8"
-        >
-          <div className="bg-slate-900/50 backdrop-blur-xl rounded-2xl border border-slate-800 overflow-hidden">
-            <div className="p-6 border-b border-slate-800">
-              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                <Users className="w-5 h-5 text-sky-400" />
-                Assigned Patients
-              </h2>
-            </div>
-
-            {patients.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center">
-                  <Users className="w-8 h-8 text-slate-600" />
-                </div>
-                <p className="text-slate-400">No patients assigned to you yet</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-800">
-                <AnimatePresence>
-                  {patients.map((patient, index) => (
-                    <motion.div
-                      key={patient.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -20 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="p-6 hover:bg-slate-800/50 transition-colors"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center border-2 border-rose-400/60">
-                            {patient.profilePicture ? (
-                              <img
-                                src={patient.profilePicture}
-                                alt={patient.name}
-                                className="w-full h-full rounded-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-sky-400 font-semibold">
-                                {patient.name.charAt(0).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
-                          <div>
-                            <h3 className="text-white font-semibold">{patient.name}</h3>
-                            <p className="text-slate-400 text-sm">{patient.email || patient.phone || 'No contact info'}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-3">
-                            {patient.assignedExercises && patient.assignedExercises.length > 0 ? (
-                              <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
-                                {patient.assignedExercises.length} Exercises
-                              </span>
-                            ) : (
-                              <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-700 text-slate-400">
-                                No Plan
-                              </span>
-                            )}
-                            
-                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/20 text-blue-400">
-                              {patient.completedSessions || 0}/{patient.totalSessions || 0} Sessions
-                            </span>
-                            
-                            {getRemainingSessions(patient) > 0 && (
-                              <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400 animate-pulse">
-                                Upcoming
-                              </span>
-                            )}
-                          </div>
-                          
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedPatient(patient);
-                            }}
-                            className="px-4 py-2 rounded-lg bg-sky-500/20 text-sky-400 hover:bg-sky-500/30 transition-colors text-sm font-medium flex items-center gap-2"
-                          >
-                            View Plan
-                            <ChevronRight className="w-4 h-4" />
-                          </motion.button>
-                          
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setConfirmPatient(patient);
-                            }}
-                            disabled={completingSession === patient.id || getRemainingSessions(patient) <= 0}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all ${
-                              getRemainingSessions(patient) <= 0
-                                ? 'bg-slate-700/50 text-slate-500 cursor-not-allowed'
-                                : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 hover:shadow-[0_8px_24px_rgba(16,185,129,0.4)]'
-                            }`}
-                          >
-                            {completingSession === patient.id ? (
-                              <>
-                                <motion.div
-                                  animate={{ rotate: 360 }}
-                                  transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                                  className="w-4 h-4 border-2 border-emerald-400 border-t-transparent rounded-full"
-                                />
-                                Recording...
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle className="w-4 h-4" />
-                                Mark Complete
-                              </>
-                            )}
-                          </motion.button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            )}
+        {/* Assigned Patient Table Section Wrapper */}
+        <section className="bg-slate-900/30 backdrop-blur-xl rounded-2xl border border-slate-900 overflow-hidden">
+          <div className="p-4 sm:p-6 border-b border-slate-900">
+            <h2 className="text-sm font-black uppercase tracking-[0.15em] text-white flex items-center gap-2">
+              <Users className="w-4 h-4 text-sky-400" />
+              Assigned Patients List
+            </h2>
           </div>
-        </motion.div>
 
-        {/* Exercise Plan Modal */}
+          {patients.length === 0 ? (
+            <div className="text-center py-12 sm:py-16 px-4">
+              <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-slate-900 flex items-center justify-center border border-slate-800">
+                <Users className="w-6 h-6 text-slate-600" />
+              </div>
+              <p className="text-slate-400 text-sm">No patients assigned to you yet</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-900/60">
+              {patients.map((patient, index) => (
+                <div
+                  key={patient.id}
+                  className="p-4 sm:p-6 hover:bg-slate-900/20 transition-colors flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                >
+                  {/* Left Column Profile Core Metrics Info */}
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="w-11 h-11 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0 relative">
+                      {patient.profilePicture ? (
+                        <img
+                          src={patient.profilePicture}
+                          alt={patient.name}
+                          className="w-full h-full rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-sky-400 text-sm font-bold">
+                          {patient.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-slate-950" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm sm:text-base font-bold text-white truncate">{patient.name}</h3>
+                      <p className="text-xs text-slate-500 truncate mt-0.5">{patient.email || patient.phone || 'No contact info'}</p>
+                    </div>
+                  </div>
+
+                  {/* Right Column Action badging and flow controller */}
+                  <div className="flex flex-wrap items-center justify-between sm:justify-start lg:justify-end gap-2.5 w-full lg:w-auto pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-900/40">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {patient.assignedExercises && patient.assignedExercises.length > 0 ? (
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase bg-green-500/10 text-green-400 border border-green-500/10">
+                          {patient.assignedExercises.length} Exercises
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase bg-slate-800 text-slate-400">
+                          No Plan
+                        </span>
+                      )}
+                      
+                      <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase bg-blue-500/10 text-blue-400 border border-blue-500/10">
+                        {patient.completedSessions || 0}/{patient.totalSessions || 0} Sessions
+                      </span>
+                      
+                      {getRemainingSessions(patient) > 0 && (
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/10 animate-pulse">
+                          Upcoming
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Operations Controls Row */}
+                    <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0 justify-end">
+                      <button
+                        onClick={() => setSelectedPatient(patient)}
+                        className="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 transition-colors text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 border border-sky-500/10"
+                      >
+                        <span>View</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                      
+                      <button
+                        onClick={() => setConfirmPatient(patient)}
+                        disabled={completingSession === patient.id || getRemainingSessions(patient) <= 0}
+                        className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all ${
+                          getRemainingSessions(patient) <= 0
+                            ? 'bg-slate-900 text-slate-600 cursor-not-allowed border border-transparent'
+                            : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/10'
+                        }`}
+                      >
+                        {completingSession === patient.id ? (
+                          <>
+                            <div className="w-3 h-3 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                            <span>...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            <span>Done</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Treatment Exercise Plan Details Dynamic Sheet Modal */}
         <AnimatePresence>
           {selectedPatient && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm"
               onClick={() => setSelectedPatient(null)}
             >
               <motion.div
-                initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                initial={{ scale: 0.96, opacity: 0, y: 15 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
-                exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                exit={{ scale: 0.96, opacity: 0, y: 15 }}
                 transition={{ type: 'spring', damping: 25 }}
-                className="w-full max-w-2xl bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl max-h-[90vh] overflow-y-auto"
+                className="w-full max-w-2xl bg-slate-900 rounded-2xl border border-slate-800 shadow-2xl max-h-[85vh] flex flex-col overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="p-6 border-b border-slate-800">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-xl font-bold text-white">Treatment Plan</h2>
-                      <p className="text-slate-400 text-sm">{selectedPatient.name}</p>
-                    </div>
-                    <button
-                      onClick={() => setSelectedPatient(null)}
-                      className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
-                    >
-                      <ChevronLeft className="w-5 h-5 text-slate-400" />
-                    </button>
+                {/* Modal Dynamic Header */}
+                <div className="p-4 sm:p-5 border-b border-slate-850 flex items-center justify-between gap-4 shrink-0">
+                  <div className="min-w-0">
+                    <h2 className="text-base sm:text-lg font-bold text-white truncate">Treatment Vault Plan</h2>
+                    <p className="text-xs text-slate-400 truncate">{selectedPatient.name}</p>
                   </div>
+                  <button
+                    onClick={() => setSelectedPatient(null)}
+                    className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
 
-                <div className="p-6">
-                  {/* Patient Info */}
-                  <div className="bg-slate-800/50 rounded-xl p-4 mb-6">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center border-2 border-rose-400/60">
+                {/* Modal Scrollable Body Segment */}
+                <div className="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 min-h-0 scrollbar-thin scrollbar-thumb-slate-800">
+                  {/* Patient Identity Meta Block */}
+                  <div className="bg-slate-950/60 rounded-xl p-4 border border-slate-850 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center shrink-0">
                         {selectedPatient.profilePicture ? (
-                          <img
-                            src={selectedPatient.profilePicture}
-                            alt={selectedPatient.name}
-                            className="w-full h-full rounded-full object-cover"
-                          />
+                          <img src={selectedPatient.profilePicture} alt="" className="w-full h-full rounded-full object-cover" />
                         ) : (
-                          <span className="text-sky-400 font-semibold">
-                            {selectedPatient.name.charAt(0).toUpperCase()}
-                          </span>
+                          <span className="text-sky-400 font-bold text-xs">{selectedPatient.name.charAt(0).toUpperCase()}</span>
                         )}
                       </div>
-                      <div>
-                        <h3 className="text-white font-semibold">{selectedPatient.name}</h3>
-                        <p className="text-slate-400 text-sm">{selectedPatient.email || selectedPatient.phone || 'No contact info'}</p>
-                        <div className="flex items-center gap-4 mt-2">
-                          <span className="text-sm text-slate-400">
-                            Sessions: <span className="text-white font-medium">{selectedPatient.completedSessions || 0}</span> / {selectedPatient.totalSessions || 0}
-                          </span>
-                          <span className="text-sm text-slate-400">
-                            Remaining: <span className="text-emerald-400 font-medium">{getRemainingSessions(selectedPatient)}</span>
-                          </span>
-                        </div>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-bold text-white truncate">{selectedPatient.name}</h3>
+                        <p className="text-xs text-slate-500 truncate mt-0.5">{selectedPatient.email || 'No email attached'}</p>
                       </div>
                     </div>
                     
-                    {selectedPatient.assignedTherapistName && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-slate-400">Assigned Therapist:</span>
-                        <span className="text-sky-400 font-medium">{selectedPatient.assignedTherapistName}</span>
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-850 gap-1.5 text-xs">
+                      <div className="text-slate-400">
+                        Sessions: <span className="text-white font-bold">{selectedPatient.completedSessions || 0}</span> / {selectedPatient.totalSessions || 0}
                       </div>
-                    )}
-                    
-                    {selectedPatient.lastUpdated && (
-                      <p className="text-slate-500 text-xs mt-2">
-                        Last updated: {selectedPatient.lastUpdated.toLocaleDateString()}
-                      </p>
+                      <div className="text-slate-500">
+                        Remaining: <span className="text-emerald-400 font-bold">{getRemainingSessions(selectedPatient)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Doctor Primary Prescriptions Node */}
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                      Medical Diagnosis / Prescription
+                    </h3>
+                    {selectedPatient.prescription ? (
+                      <div className="bg-emerald-950/10 rounded-xl p-3.5 border border-emerald-900/20">
+                        <p className="text-xs sm:text-sm text-emerald-200/90 whitespace-pre-wrap leading-relaxed">
+                          {selectedPatient.prescription}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center py-5 bg-slate-950/20 rounded-xl border border-slate-850">
+                        <p className="text-xs text-slate-500">No custom physician note available.</p>
+                      </div>
                     )}
                   </div>
 
-                  {/* Exercise Plan */}
-                  <div>
-                    <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                      <Dumbbell className="w-5 h-5 text-sky-400" />
-                      Prescribed Exercises
+                  {/* Exercise Loop Cards Segment */}
+                  <div className="space-y-3">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Dumbbell className="w-3.5 h-3.5 text-sky-400" />
+                      Assigned Routines List
                     </h3>
 
-                     {(!selectedPatient.assignedExercises || selectedPatient.assignedExercises.length === 0) ? (
-                       <div className="text-center py-8">
-                         <FileText className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-                         <p className="text-slate-400">No exercise plan prescribed yet</p>
-                         <p className="text-slate-500 text-sm mt-1">The doctor needs to assign exercises first</p>
-                       </div>
-                     ) : (
-                       <div className="space-y-3">
-                         {selectedPatient.assignedExercises.map((exercise: any, index: number) => (
-                          <motion.div
+                    {(!selectedPatient.assignedExercises || selectedPatient.assignedExercises.length === 0) ? (
+                      <div className="text-center py-8 bg-slate-950/20 rounded-xl border border-slate-850">
+                        <FileText className="w-10 h-10 mx-auto mb-2 text-slate-700" />
+                        <p className="text-xs text-slate-400">No targeted workflow strategy allocated yet.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {selectedPatient.assignedExercises.map((exercise: any, index: number) => (
+                          <div
                             key={index}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: index * 0.1 }}
-                            className="bg-slate-800/50 rounded-xl p-4 border border-slate-700"
+                            className="bg-slate-950/40 rounded-xl p-4 border border-slate-850 space-y-3"
                           >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h4 className="text-white font-semibold flex items-center gap-2">
-                                  <span className="w-6 h-6 rounded-full bg-sky-500/20 flex items-center justify-center text-xs text-sky-400">
-                                    {index + 1}
-                                  </span>
-                                  {exercise.name || exercise.title || 'Exercise'}
-                                </h4>
-                                <p className="text-slate-400 text-sm mt-1">
-                                  {exercise.description || exercise.instructions || 'No description'}
+                            <div className="flex items-start gap-3 min-w-0">
+                              <span className="w-5 h-5 rounded-md bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-[10px] font-black text-sky-400 shrink-0 mt-0.5">
+                                {index + 1}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <h4 className="text-sm font-bold text-white truncate">{exercise.name || exercise.title || 'Exercise'}</h4>
+                                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                                  {exercise.description || exercise.instructions || 'No specific dynamic directives added.'}
                                 </p>
                               </div>
                             </div>
-  
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t border-slate-700">
-                              {exercise.duration && (
-                                <div className="text-center">
-                                  <p className="text-slate-400 text-xs">Duration</p>
-                                  <p className="text-white font-semibold text-sm">{exercise.duration}</p>
-                                </div>
-                              )}
-                              {exercise.sets && (
-                                <div className="text-center">
-                                  <p className="text-slate-400 text-xs">Sets</p>
-                                  <p className="text-white font-semibold text-sm">{exercise.sets}</p>
-                                </div>
-                              )}
-                              {exercise.reps && (
-                                <div className="text-center">
-                                  <p className="text-slate-400 text-xs">Reps</p>
-                                  <p className="text-white font-semibold text-sm">{exercise.reps}</p>
-                                </div>
-                              )}
-                              {exercise.frequency && (
-                                <div className="text-center">
-                                  <p className="text-slate-400 text-xs">Frequency</p>
-                                  <p className="text-white font-semibold text-sm">{exercise.frequency}</p>
-                                </div>
-                              )}
+    
+                            {/* Metric Configurations Grid System */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-slate-850/60 text-center">
+                              <div className="bg-slate-900/80 rounded-lg p-1.5 border border-slate-850/40">
+                                <p className="text-[10px] text-slate-500 uppercase font-medium">Duration</p>
+                                <p className="text-xs text-white font-bold mt-0.5 truncate">{exercise.duration || '--'}</p>
+                              </div>
+                              <div className="bg-slate-900/80 rounded-lg p-1.5 border border-slate-850/40">
+                                <p className="text-[10px] text-slate-500 uppercase font-medium">Sets</p>
+                                <p className="text-xs text-white font-bold mt-0.5 truncate">{exercise.sets || '--'}</p>
+                              </div>
+                              <div className="bg-slate-900/80 rounded-lg p-1.5 border border-slate-850/40">
+                                <p className="text-[10px] text-slate-500 uppercase font-medium">Reps</p>
+                                <p className="text-xs text-white font-bold mt-0.5 truncate">{exercise.reps || '--'}</p>
+                              </div>
+                              <div className="bg-slate-900/80 rounded-lg p-1.5 border border-slate-850/40">
+                                <p className="text-[10px] text-slate-500 uppercase font-medium">Frequency</p>
+                                <p className="text-xs text-white font-bold mt-0.5 truncate">{exercise.frequency || '--'}</p>
+                              </div>
                             </div>
-                          </motion.div>
+                          </div>
                         ))}
                       </div>
                     )}
                   </div>
-
-                   {/* Doctor's Prescription */}
-                   <div className="mt-6 pt-6 border-t border-slate-700">
-                     <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                       <FileText className="w-5 h-5 text-emerald-400" />
-                       Doctor's Prescription
-                     </h3>
-                     {selectedPatient.prescription ? (
-                       <div className="bg-emerald-500/5 rounded-xl p-4 border border-emerald-500/20">
-                         <p className="text-emerald-100 whitespace-pre-wrap">{selectedPatient.prescription}</p>
-                       </div>
-                     ) : (
-                       <div className="text-center py-8">
-                         <FileText className="w-12 h-12 mx-auto mb-4 text-slate-600" />
-                         <p className="text-slate-400">No prescription available yet.</p>
-                       </div>
-                     )}
-                   </div>
                 </div>
               </motion.div>
             </motion.div>
