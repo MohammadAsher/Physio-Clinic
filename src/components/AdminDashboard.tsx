@@ -2,24 +2,31 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, UserCheck, Shield, ArrowRight, X, Check, Clock, FileText, QrCode, XCircle, PartyPopper } from 'lucide-react';
+import { Users, UserCheck, Shield, ArrowRight, X, Check, CheckCircle, Clock, FileText, QrCode, XCircle, PartyPopper, CreditCard, Eye, Download } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { collection, getDocs, updateDoc, doc, addDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { User } from '@/types';
+import { ClinicFeatures, ClinicType, CLINIC_TYPES, getClinicTypeLabel } from '@/types/clinic';
+import { useClinicContext } from '@/lib/clinicContext';
+import { downloadAppointmentReceipt } from '@/lib/pdfReceipt';
+import { getPendingAppointments, approveAppointment, getConfirmedAppointments, removePendingAppointment, PendingAppointment, ConfirmedAppointment } from '@/lib/appointmentState';
 import CounterAnimation from './CounterAnimation';
 import MedicalEmptyState from './MedicalEmptyState';
 import RoleBasedQuotes from './RoleBasedQuotes';
 import AnalyticsSuite from './AnalyticsSuite';
 import PremiumCard from './PremiumCard';
 import CustomDropdown from './CustomDropdown';
+import FileViewerModal from './FileViewerModal';
 
 interface AdminDashboardProps {
   users: User[];
   onAssignRole: (userId: string, role: 'patient' | 'doctor' | 'therapist') => void;
   onLogout: () => void;
+  features?: ClinicFeatures;
+  clinicType?: ClinicType;
 }
 
-export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminDashboardProps) {
+export default function AdminDashboard({ users, onAssignRole, onLogout, features, clinicType }: AdminDashboardProps) {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [doctors, setDoctors] = useState<User[]>([]);
   const [showConfetti, setShowConfetti] = useState(false);
@@ -27,6 +34,30 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
   const [sessionInputs, setSessionInputs] = useState<Record<string, string>>({});
   const [membershipRequests, setMembershipRequests] = useState<any[]>([]);
   const [doctorSelections, setDoctorSelections] = useState<Record<string, string>>({});
+  const [showClinicTypeModal, setShowClinicTypeModal] = useState(false);
+  const [pendingPayments, setPendingPayments] = useState<any[]>([]);
+  const [approvedPayments, setApprovedPayments] = useState<any[]>([]);
+  const [showScreenshotModal, setShowScreenshotModal] = useState(false);
+  const [screenshotUrl, setScreenshotUrl] = useState('');
+  const [screenshotFileName, setScreenshotFileName] = useState('');
+
+  const { setClinicType: updateClinicType } = useClinicContext();
+  const hasTherapists = features?.hasTherapists ?? true;
+
+  // Load pending & confirmed appointments from localStorage
+  useEffect(() => {
+    const loadAppointments = () => {
+      const pending = getPendingAppointments();
+      setPendingPayments(pending);
+      const confirmed = getConfirmedAppointments();
+      setApprovedPayments(confirmed);
+    };
+    loadAppointments();
+
+    // Listen for localStorage changes from other tabs/components
+    window.addEventListener('storage', loadAppointments);
+    return () => window.removeEventListener('storage', loadAppointments);
+  }, []);
 
   useEffect(() => {
     const doctorList = users.filter(u => u.role === 'doctor');
@@ -43,6 +74,29 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
        requestDate: doc.data().requestDate?.toDate() || doc.data().requestDate || new Date()
      } as any));
      setMembershipRequests(requests.filter(r => r.status === 'pending'));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch pending payment verifications from Firestore (merged with localStorage)
+  useEffect(() => {
+    const q = query(
+      collection(db, 'appointments'),
+      where('status', '==', 'pending_verification')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const firestoreData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        appointmentId: doc.id,
+        ...doc.data(),
+      }));
+
+      const localPending = getPendingAppointments();
+      const firestoreIds = new Set(localPending.map(p => p.appointmentId));
+
+      // Merge: Firestore appointments not already in localStorage
+      const merged = [...localPending, ...firestoreData.filter(f => !firestoreIds.has(f.appointmentId))];
+      setPendingPayments(merged);
     });
     return () => unsubscribe();
   }, []);
@@ -74,9 +128,42 @@ export default function AdminDashboard({ users, onAssignRole, onLogout }: AdminD
         return updated;
       });
     }
-  };
+   };
 
-  const handleUpdateStatus = async (patientId: string, status: string) => {
+    const handleApprovePayment = async (id: string) => {
+      try {
+        const appointment = pendingPayments.find(p => p.id === id);
+        if (!appointment) return;
+
+        // Update Firestore if appointmentId exists
+        if (appointment.appointmentId) {
+          await updateDoc(doc(db, 'appointments', appointment.appointmentId), {
+            status: 'confirmed',
+            verifiedAt: new Date().toISOString(),
+            verifiedBy: 'Admin',
+          });
+        }
+
+        // Move from pending to confirmed in localStorage, tagging doctorId
+        const confirmed = approveAppointment(id, appointment.doctorId || '');
+
+        // Update local state
+        setPendingPayments(prev => prev.filter(p => p.id !== id));
+        if (confirmed) {
+          setApprovedPayments(prev => [confirmed, ...prev]);
+        }
+      } catch (err) {
+        console.error('Error approving payment:', err);
+      }
+    };
+
+    const handleViewScreenshot = (url: string, fileName: string = 'payment-proof') => {
+      setScreenshotUrl(url);
+      setScreenshotFileName(fileName);
+      setShowScreenshotModal(true);
+    };
+
+   const handleUpdateStatus = async (patientId: string, status: string) => {
     try {
       await updateDoc(doc(db, 'users', patientId), { 
         status,
@@ -188,6 +275,7 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
   };
 
   return (
+    <>
     <motion.div
       variants={staggerContainer}
       initial="hidden"
@@ -203,14 +291,25 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
             <h1 className="text-3xl font-bold text-gradient">Admin Dashboard</h1>
             <p className="text-slate-400">Manage users, patients, and memberships</p>
           </div>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={onLogout}
-            className="glass-button secondary flex items-center gap-2"
-          >
-            <span>Sign Out</span>
-          </motion.button>
+          <div className="flex items-center gap-4">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setShowClinicTypeModal(true)}
+              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:border-rose-500/30 transition-all text-sm flex items-center gap-2"
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+              <span>Clinic: {clinicType ? getClinicTypeLabel(clinicType) : 'Physiotherapy'}</span>
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onLogout}
+              className="glass-button secondary flex items-center gap-2"
+            >
+              <span>Sign Out</span>
+            </motion.button>
+          </div>
         </motion.div>
 
         <AnimatePresence>
@@ -320,7 +419,7 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
 
             <div className="space-y-4">
               {unassignedPatients.map((patient) => (
-                <div key={patient.id} className="p-4 bg-white/5 rounded-xl">
+                <div key={patient.id} className="p-4 bg-white/5 rounded-xl overflow-visible">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                        <div className="w-10 h-10 rounded-full premium-gradient flex items-center justify-center border-2 border-rose-400/60">
@@ -334,7 +433,7 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
                        </div>
                     </div>
                   </div>
-                  <div className="mt-3">
+                   <div className="mt-3 overflow-visible">
                     <CustomDropdown
                       options={doctors.map(doc => ({
                         id: doc.id,
@@ -465,19 +564,234 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
                  </div>
                )}
              </div>
-          </motion.div>
-        </div>
+         </motion.div>
+         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="glass-card p-6 mt-6"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <Shield className="w-6 h-6 text-primary" />
-            <h2 className="text-xl font-semibold text-white">Assigned Patients - Status Control</h2>
-          </div>
+         {/* Pending Payment Confirmations */}
+         <motion.div
+           initial={{ opacity: 0, y: 20 }}
+           animate={{ opacity: 1, y: 0 }}
+           transition={{ delay: 0.3 }}
+           className="glass-card p-6 mt-6"
+         >
+           <div className="flex items-center justify-between mb-6">
+             <div className="flex items-center gap-3">
+               <CreditCard className="w-6 h-6 text-amber-400" />
+               <h2 className="text-xl font-semibold text-white">Pending Payment Confirmations</h2>
+             </div>
+             {pendingPayments.length > 0 && (
+               <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-xs font-bold border border-amber-500/30">
+                 {pendingPayments.length} pending
+               </span>
+             )}
+           </div>
+
+           {pendingPayments.length === 0 ? (
+             <div className="text-center py-12">
+               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800/50 flex items-center justify-center">
+                 <CreditCard className="w-8 h-8 text-slate-600" />
+               </div>
+               <p className="text-slate-400 text-lg">No pending payment confirmations</p>
+               <p className="text-slate-500 text-sm mt-1">All bookings have been verified</p>
+             </div>
+           ) : (
+             <div className="space-y-4">
+               {pendingPayments.map((appointment) => (
+                  <motion.div
+                    key={appointment.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-6 glass-card border border-amber-500/20 rounded-xl"
+                  >
+                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                      {/* Column 1 — Patient & Doctor Info */}
+                      <div className="sm:col-span-4 flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                          {appointment.patientName?.charAt(0) || '?'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-white font-medium">{appointment.patientName}</p>
+                          <p className="text-slate-400 text-sm">{appointment.patientPhone}</p>
+                          <p className="text-slate-300 text-xs mt-0.5">
+                            <span className="text-slate-300">Doctor:</span> {appointment.doctorName || 'N/A'}
+                          </p>
+                          <p className="text-slate-300 text-xs mt-0.5">
+                            <span className="text-slate-300">Txn ID:</span> {appointment.transactionId || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Column 2 — Appointment Details (Date, Time & Token) */}
+                      <div className="sm:col-span-3 space-y-1.5">
+                        <div>
+                          <span className="text-slate-300 text-xs font-medium">Date:</span>
+                          <span className="text-white text-sm ml-1.5">{appointment.date || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-300 text-xs font-medium">Time:</span>
+                          <span className="text-white text-sm ml-1.5">{appointment.slot || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-300 text-xs font-medium">Token:</span>
+                          <span className="text-white text-sm ml-1.5">{appointment.token || 'N/A'}</span>
+                        </div>
+                      </div>
+
+                      {/* Column 3 — Amount & Screenshot */}
+                      <div className="sm:col-span-2 space-y-1.5">
+                        <div>
+                          <span className="text-slate-300 text-xs font-medium">Amount:</span>
+                          <span className="text-amber-400 font-bold text-sm ml-1.5">PKR {appointment.amount?.toLocaleString() || '1,000'}</span>
+                        </div>
+                        {appointment.paymentProofUrl ? (
+                          <button
+                            onClick={() => handleViewScreenshot(appointment.paymentProofUrl, `${appointment.patientName || 'patient'}-payment-proof`)}
+                            className="flex items-center gap-1.5 text-xs text-sky-400 hover:text-sky-300 hover:bg-white/5 px-2 py-1 rounded-lg transition-colors"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            View Screenshot
+                          </button>
+                        ) : (
+                          <span className="text-slate-500 text-xs">No proof uploaded</span>
+                        )}
+                      </div>
+
+                      {/* Column 4 — Approve Button */}
+                      <div className="sm:col-span-2 sm:ml-auto">
+                        <motion.button
+                          whileHover={{ scale: 1.02, boxShadow: '0 0 20px rgba(34, 197, 94, 0.4)' }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => handleApprovePayment(appointment.id)}
+                          className="w-full px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-semibold rounded-xl flex items-center justify-center gap-2 text-sm shadow-lg shadow-emerald-900/30"
+                        >
+                          <Check className="w-4 h-4" />
+                          Approve / Confirm
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+               ))}
+             </div>
+           )}
+          </motion.div>
+
+          {/* Approved Payments */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="glass-card p-6 mt-6"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <CheckCircle className="w-6 h-6 text-emerald-400" />
+              <h2 className="text-xl font-semibold text-white">Approved Payments</h2>
+            </div>
+
+            {approvedPayments.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800/50 flex items-center justify-center">
+                  <CreditCard className="w-8 h-8 text-slate-600" />
+                </div>
+                <p className="text-slate-400 text-lg">No approved payments</p>
+                <p className="text-slate-500 text-sm mt-1">Approved bookings will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {approvedPayments.map((appointment) => (
+                  <motion.div
+                    key={appointment.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-5 glass-card border border-emerald-500/20 rounded-xl"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                      <div className="sm:col-span-4 flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                          {appointment.patientName?.charAt(0) || '?'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-white font-medium">{appointment.patientName}</p>
+                          <p className="text-slate-400 text-sm">{appointment.patientPhone}</p>
+                          <p className="text-slate-300 text-xs mt-0.5">
+                            <span className="text-slate-300">Doctor:</span> {appointment.doctorName || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-3 space-y-1.5">
+                        <div>
+                          <span className="text-slate-300 text-xs font-medium">Token:</span>
+                          <span className="text-white text-sm ml-1.5 font-bold">{appointment.token || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-300 text-xs font-medium">Date:</span>
+                          <span className="text-white text-sm ml-1.5">{appointment.date || 'N/A'}</span>
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-3 space-y-1.5">
+                        <div>
+                          <span className="text-slate-300 text-xs font-medium">Time:</span>
+                          <span className="text-white text-sm ml-1.5">{appointment.slot || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-300 text-xs font-medium">Amount:</span>
+                          <span className="text-amber-400 font-bold text-sm ml-1.5">PKR {appointment.amount?.toLocaleString() || '1,000'}</span>
+                        </div>
+                      </div>
+
+                      <div className="sm:col-span-2 flex gap-2">
+                        {appointment.paymentProofUrl && (
+                          <button
+                            onClick={() => handleViewScreenshot(appointment.paymentProofUrl, `${appointment.patientName || 'patient'}-payment-proof`)}
+                            className="p-2 rounded-lg bg-white/5 text-sky-400 hover:bg-white/10 transition-colors"
+                            title="View payment screenshot"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        )}
+                        <motion.button
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => downloadAppointmentReceipt({
+                            clinicName: 'Body Experts Clinic',
+                            clinicAddress: '123 Wellness Street, Health District',
+                            patientName: appointment.patientName,
+                            patientPhone: appointment.patientPhone,
+                            doctorName: appointment.doctorName || '',
+                            doctorSpecialty: appointment.doctorSpecialty || 'General Physician',
+                            appointmentDate: appointment.date || '',
+                            appointmentTime: appointment.slot || '',
+                            amount: appointment.amount || 1000,
+                            token: appointment.token || '',
+                            appointmentId: appointment.appointmentId || appointment.id,
+                            status: 'confirmed',
+                            verifiedBy: 'Admin',
+                            verifiedAt: appointment.verifiedAt || new Date().toLocaleDateString(),
+                          })}
+                          className="p-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-600 text-white hover:shadow-lg transition-all"
+                          title="Download official confirmed receipt"
+                        >
+                          <Download className="w-4 h-4" />
+                        </motion.button>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            )}
+           </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="glass-card p-6 mt-6"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <Shield className="w-6 h-6 text-primary" />
+              <h2 className="text-xl font-semibold text-white">Assigned Patients - Status Control</h2>
+            </div>
 
            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
              {assignedPatients.map((patient) => (
@@ -625,8 +939,10 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
                           className="bg-slate-800/50 text-white px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
                         >
                           <option value="patient">Patient</option>
-                          <option value="doctor">Doctor</option>
-                          <option value="therapist">Therapist</option>
+                          <option value="doctor">{features ? features.personnelLabel : 'Doctor'}</option>
+                          {hasTherapists && (
+                            <option value="therapist">Therapist</option>
+                          )}
                         </select>
                       </div>
                     )}
@@ -643,5 +959,103 @@ const handleApproveMembership = async (requestId: string, userId: string, totalS
         </motion.div>
       </div>
     </motion.div>
-  );
-}
+
+    <AnimatePresence>
+      {showClinicTypeModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+            transition={{ type: 'spring', damping: 25 }}
+            className="w-full max-w-2xl bg-slate-900 rounded-2xl border border-white/10 shadow-2xl my-8"
+          >
+            <div className="p-6 border-b border-white/10 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white">Change Clinic Type</h2>
+              <button
+                onClick={() => setShowClinicTypeModal(false)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-slate-400 text-sm mb-4">
+                Changing the clinic type will update the dashboard layout, navigation, and staff roles across the application.
+              </p>
+              <div className="space-y-3">
+                {CLINIC_TYPES.map((type) => {
+                  const isSelected = clinicType === type.value;
+                  return (
+                    <button
+                      key={type.value}
+                      onClick={async () => {
+                        await updateClinicType(type.value);
+                        setShowClinicTypeModal(false);
+                      }}
+                      className={`
+                        w-full flex items-center gap-4 p-4 rounded-xl border transition-all duration-300 text-left
+                        ${
+                          isSelected
+                            ? 'border-rose-500/50 bg-rose-500/10 shadow-lg shadow-rose-900/20'
+                            : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'
+                        }
+                      `}
+                    >
+                      <div
+                        className={`
+                          w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0
+                          ${
+                            isSelected
+                              ? `bg-gradient-to-br ${type.primaryColor}`
+                              : 'bg-white/5 border border-white/10'
+                          }
+                        `}
+                      >
+                        <span>{type.icon}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-white font-semibold">{type.label}</h3>
+                          {type.isDefault && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-slate-400 text-sm mt-0.5">{type.description}</p>
+                      </div>
+                      {isSelected && (
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center shrink-0"
+                        >
+                          <Check className="w-3 h-3 text-white" />
+                        </motion.div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+     </AnimatePresence>
+
+     <FileViewerModal
+       isOpen={showScreenshotModal}
+       onClose={() => setShowScreenshotModal(false)}
+       fileUrl={screenshotUrl}
+       fileName={screenshotFileName}
+       fileType="image"
+     />
+     </>
+   );
+ }

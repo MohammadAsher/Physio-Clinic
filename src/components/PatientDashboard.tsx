@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LayoutDashboard, LogOut, FileText, Crown, UserPlus, UserCheck, X, Check, Copy, Menu, ChevronRight, ChevronLeft, Upload } from 'lucide-react';
 import { User, PatientView } from '@/types';
+import { ClinicFeatures } from '@/types/clinic';
 import Logo from './Logo';
 import PatientOverview from './PatientOverview';
 import ReportsManagement from './ReportsManagement';
@@ -20,6 +21,7 @@ import { doc, updateDoc, collection, addDoc, onSnapshot } from 'firebase/firesto
 interface PatientDashboardProps {
   user: User;
   onLogout: () => void;
+  features?: ClinicFeatures;
 }
 
 const navItems: { id: PatientView; label: string; icon: React.ReactNode }[] = [
@@ -51,7 +53,7 @@ const slideUpVariant = {
   },
 };
 
-export default function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
+export default function PatientDashboard({ user, onLogout, features }: PatientDashboardProps) {
   const [activeView, setActiveView] = useState<PatientView>('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false); // Default closed on mobile
   const [showMembershipModal, setShowMembershipModal] = useState(false);
@@ -60,8 +62,10 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
   const [submitting, setSubmitting] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [savingProfile, setSavingProfile] = useState(false);
-  const [profileImage, setProfileImage] = useState<string>(user?.patientProfile?.profilePicture || user?.profilePicture || user?.avatar || '');
+   const [savingProfile, setSavingProfile] = useState(false);
+   const [profileImage, setProfileImage] = useState<string>(user?.patientProfile?.profilePicture || user?.profilePicture || user?.avatar || '');
+   const hasTherapists = features?.hasTherapists ?? true;
+   const personnelLabel = features?.personnelLabel || 'Therapist';
   const [profileData, setProfileData] = useState({
     fullName: user?.patientProfile?.fullName || user?.name || '',
     age: user?.patientProfile?.age || '',
@@ -106,7 +110,9 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
 
   const [freshUserData, setFreshUserData] = useState<User | null>(null);
 
-  const isAssigned = !!freshUserData?.assignedTherapistName;
+  const isAssigned = hasTherapists
+    ? !!freshUserData?.assignedTherapistName
+    : !!freshUserData?.assignedDoctorName;
   const isMember = freshUserData?.isMember && freshUserData?.membershipStatus === 'active';
   const isPendingApproval = freshUserData?.membershipStatus === 'pendingApproval';
   const isProfileComplete = freshUserData?.profileCompleted && freshUserData?.patientProfile?.age;
@@ -261,12 +267,14 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
             </motion.div>
 
             <motion.div variants={slideUpVariant}>
-              <PatientOverview
-                user={user}
-                onUpgradeClick={() => setShowMembershipModal(true)}
-                isMember={isMember}
-                isPendingApproval={isPendingApproval}
-              />
+             <PatientOverview
+                  user={user}
+                  onUpgradeClick={() => setShowMembershipModal(true)}
+                  onViewReports={() => setActiveView('reports')}
+                  isMember={isMember}
+                  isPendingApproval={isPendingApproval}
+                  features={features}
+                />
             </motion.div>
           </motion.div>
         );
@@ -409,12 +417,20 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                     />
                     <span className="text-emerald-400 text-[10px] md:text-xs font-semibold uppercase tracking-wider">Live Assignment</span>
                   </div>
-                  <h3 className="text-lg md:text-2xl font-bold text-white mb-1">Your Care Team is Ready</h3>
-                  <p className="text-slate-300 text-xs md:text-sm mb-6 max-w-md">
-                    {freshUserData?.assignedDoctorName ? `Dr. ${freshUserData.assignedDoctorName} has successfully assigned ` : 'We have ' }
-                    <span className="font-semibold text-cyan-400">{freshUserData?.assignedTherapistName}</span>
-                    {freshUserData?.assignedDoctorName ? ' for your session.' : ' your assigned physiotherapist.'}
-                  </p>
+                   <h3 className="text-lg md:text-2xl font-bold text-white mb-1">Your Care Team is Ready</h3>
+                   <p className="text-slate-300 text-xs md:text-sm mb-6 max-w-md">
+                     {hasTherapists ? (
+                       <>
+                         {freshUserData?.assignedDoctorName ? `Dr. ${freshUserData.assignedDoctorName} has successfully assigned ` : 'We have ' }
+                         <span className="font-semibold text-cyan-400">{freshUserData?.assignedTherapistName}</span>
+                         {freshUserData?.assignedDoctorName ? ' for your session.' : ' your assigned physiotherapist.'}
+                       </>
+                     ) : (
+                       freshUserData?.assignedDoctorName
+                         ? `Dr. ${freshUserData.assignedDoctorName} is ready for your session.`
+                         : 'We have assigned a care provider for you.'
+                     )}
+                   </p>
 
                   {/* Care Team Connection Flowchart */}
                   <div className="flex items-center justify-center gap-2 sm:gap-6 w-full max-w-sm">
@@ -445,23 +461,27 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                       <p className="text-slate-400 text-[9px] md:text-xs mt-1">You</p>
                     </div>
 
-                    <div className="flex-1 relative h-2 min-w-[30px]">
-                      <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-800 -translate-y-1/2" />
-                      <motion.div
-                        animate={{ x: ['0%', '200%'] }}
-                        transition={{ repeat: Infinity, duration: 1.5, ease: 'linear', delay: 0.5 }}
-                        className="absolute top-0 w-1.5 h-1.5 bg-emerald-400 rounded-full"
-                      />
-                    </div>
+                    {hasTherapists && (
+                      <>
+                        <div className="flex-1 relative h-2 min-w-[30px]">
+                          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-slate-800 -translate-y-1/2" />
+                          <motion.div
+                            animate={{ x: ['0%', '200%'] }}
+                            transition={{ repeat: Infinity, duration: 1.5, ease: 'linear', delay: 0.5 }}
+                            className="absolute top-0 w-1.5 h-1.5 bg-emerald-400 rounded-full"
+                          />
+                        </div>
 
-                    <div className="flex flex-col items-center flex-shrink-0">
-                      <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow-lg">
-                        <UserCheck className="w-5 h-5 md:w-6 md:h-6 text-white" />
-                      </div>
-                      <p className="text-slate-400 text-[9px] md:text-xs mt-1 truncate max-w-[60px] md:max-w-none text-center">
-                        {freshUserData?.assignedTherapistName ? freshUserData.assignedTherapistName.split(' ')[0] : 'Therapist'}
-                      </p>
-                    </div>
+                        <div className="flex flex-col items-center flex-shrink-0">
+                          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow-lg">
+                            <UserCheck className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                          </div>
+                          <p className="text-slate-400 text-[9px] md:text-xs mt-1 truncate max-w-[60px] md:max-w-none text-center">
+                            {freshUserData?.assignedTherapistName ? freshUserData.assignedTherapistName.split(' ')[0] : personnelLabel}
+                          </p>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                 </div>
@@ -478,7 +498,7 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
                   </div>
                   <div>
                     <p className="text-amber-500 font-semibold uppercase text-[10px] tracking-widest">Status: Queue</p>
-                    <p className="text-slate-400 text-xs md:text-sm">Assigning a physiotherapist shortly...</p>
+                    <p className="text-slate-400 text-xs md:text-sm">Assigning a {personnelLabel.toLowerCase()} shortly...</p>
                   </div>
                 </div>
               </motion.div>

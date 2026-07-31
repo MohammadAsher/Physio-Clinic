@@ -36,7 +36,7 @@ const PremiumCard = ({
 
   return (
     <motion.div
-      className={`premium-card relative overflow-hidden group cursor-pointer ${className}`}
+      className={`premium-card relative overflow-visible group cursor-pointer ${className}`}
       whileHover={{ scale: hoverScale }}
       transition={{ duration: 0.5, ease: 'easeInOut' }}
       onClick={onClick}

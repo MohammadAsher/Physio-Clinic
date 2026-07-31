@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Poppins, Playfair_Display } from 'next/font/google';
 import './globals.css';
+import { ClinicProvider } from '@/lib/clinicContext';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -28,7 +29,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${poppins.variable} ${playfairDisplay.variable} font-sans antialiased`}>
-      <body className="font-[family-name:var(--font-poppins)]">{children}</body>
+      <body className="font-[family-name:var(--font-poppins)]">
+        <ClinicProvider>
+          {children}
+        </ClinicProvider>
+      </body>
     </html>
   );
 }

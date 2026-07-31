@@ -21,6 +21,7 @@ export interface User {
   membershipRequestDate?: Date;
   submittedTrxID?: string;
   profileCompleted?: boolean;
+  clinicType?: import('./clinic').ClinicType;
   doctorProfile?: {
     fullName?: string;
     education?: string;
@@ -29,6 +30,7 @@ export interface User {
     specialization?: string;
     availableDays?: string[];
     timings?: string;
+    slotDuration?: number;
     consultationFee?: number;
     about?: string;
     profilePicture?: string;
@@ -42,6 +44,7 @@ export interface User {
     address?: string;
     primaryConcern?: string;
     medicalHistory?: string;
+    bloodGroup?: string;
     profilePicture?: string;
   };
   appointments?: Appointment[];
@@ -52,10 +55,15 @@ export interface Appointment {
   id: string;
   patientId: string;
   patientName: string;
+  patientPhone?: string;
   doctorId?: string;
   doctorName?: string;
-  date: Date;
-  status: 'pending' | 'completed' | 'cancelled';
+  doctorSpecialty?: string;
+  date: Date | string;
+  slot?: string;
+  token?: string;
+  amount?: number;
+  status: 'pending' | 'pending_verification' | 'confirmed' | 'completed' | 'cancelled';
   type: 'general' | 'specific';
   prescription?: {
     diagnosis: string;
@@ -175,3 +183,16 @@ export type AuthView = 'landing' | 'login' | 'signup';
 export type DashboardView = 'patient' | 'doctor';
 export type PatientView = 'overview' | 'reports';
 export type DoctorView = 'waiting' | 'consultation' | 'patients' | 'recent';
+
+export type {
+  ClinicType,
+  StaffRole,
+  ClinicTypeOption,
+  ClinicFeatures,
+} from './clinic';
+export {
+  CLINIC_TYPES,
+  DEFAULT_CLINIC_TYPE,
+  getClinicFeatures,
+  getClinicTypeLabel,
+} from './clinic';

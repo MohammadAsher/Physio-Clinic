@@ -103,7 +103,7 @@ export default function CustomDropdown({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute z-50 w-full mt-2 max-h-60 overflow-y-auto rounded-xl bg-slate-900 border border-white/10 shadow-2xl backdrop-blur-md"
+            className="absolute z-[999] w-full mt-2 max-h-60 overflow-y-auto rounded-xl bg-slate-900 border border-white/10 shadow-2xl backdrop-blur-md"
           >
             <div className="p-1">
               {options.map((option) => {

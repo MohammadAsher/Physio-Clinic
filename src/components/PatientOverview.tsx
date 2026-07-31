@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, Activity, CheckCircle, Crown, X } from 'lucide-react';
+import { Calendar, Clock, Activity, CheckCircle, Crown, X, HeartPulse, ThermometerSun, FileText, ChevronRight } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { User, Patient } from '@/types';
+import { ClinicFeatures } from '@/types/clinic';
 import CounterAnimation from './CounterAnimation';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
@@ -14,15 +15,19 @@ interface PatientOverviewProps {
   user: User;
   patient?: Patient | null;
   onUpgradeClick?: () => void;
+  onViewReports?: () => void;
   isMember?: boolean;
   isPendingApproval?: boolean;
+  features?: ClinicFeatures;
 }
 
-export default function PatientOverview({ user, patient, onUpgradeClick, isMember, isPendingApproval }: PatientOverviewProps) {
+export default function PatientOverview({ user, patient, onUpgradeClick, onViewReports, isMember, isPendingApproval, features }: PatientOverviewProps) {
   const [showQRModal, setShowQRModal] = useState(false);
   const [showExercisesModal, setShowExercisesModal] = useState(false);
   const [showSessionHistoryModal, setShowSessionHistoryModal] = useState(false);
   const [assignedExercises, setAssignedExercises] = useState<any[]>([]);
+  const hasTherapists = features?.hasTherapists ?? true;
+  const personnelLabel = features?.personnelLabel || 'Therapist';
   const [assignedTherapistName, setAssignedTherapistName] = useState<string | null>(null);
   const [showTreatmentPlan, setShowTreatmentPlan] = useState(false);
   const [userData, setUserData] = useState<any>(null);
@@ -249,31 +254,151 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
+      <AnimatePresence mode="wait">
+        {hasTherapists ? (
           <motion.div
-            key={stat.label}
-            variants={slideUpVariant}
-            whileHover={{ scale: 1.02, y: -4 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => {
-              if (stat.sessionHistory) setShowSessionHistoryModal(true);
-              else if (stat.clickable && assignedExercises.length > 0) setShowTreatmentPlan(true);
-            }}
-            className="premium-glass p-5 cursor-pointer hover:border-red-500/50 transition-all"
+            key="session-cards"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
           >
-            <div className={`w-12 h-12 rounded-xl ${stat.color === 'red' ? 'red-gradient' : 'blue-gradient'} flex items-center justify-center text-white mb-4 shadow-lg`}>
-              {stat.icon}
-            </div>
-            <p className="text-slate-400 text-sm mb-1">{stat.label}</p>
-            <p className={`text-2xl font-bold ${stat.color === 'red' ? 'text-primary' : 'text-sky'}`}>
-              {typeof stat.value === 'number' && !stat.isPercentage ? <CounterAnimation value={stat.value} duration={1.5} /> : stat.value}
-            </p>
+            {stats.map((stat) => (
+              <motion.div
+                key={stat.label}
+                variants={slideUpVariant}
+                whileHover={{ scale: 1.02, y: -4 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  if (stat.sessionHistory) setShowSessionHistoryModal(true);
+                  else if (stat.clickable && assignedExercises.length > 0) setShowTreatmentPlan(true);
+                }}
+                className="premium-glass p-5 cursor-pointer hover:border-red-500/50 transition-all"
+              >
+                <div className={`w-12 h-12 rounded-xl ${stat.color === 'red' ? 'red-gradient' : 'blue-gradient'} flex items-center justify-center text-white mb-4 shadow-lg`}>
+                  {stat.icon}
+                </div>
+                <p className="text-slate-400 text-sm mb-1">{stat.label}</p>
+                <p className={`text-2xl font-bold ${stat.color === 'red' ? 'text-primary' : 'text-sky'}`}>
+                  {typeof stat.value === 'number' && !stat.isPercentage ? <CounterAnimation value={stat.value} duration={1.5} /> : stat.value}
+                </p>
+              </motion.div>
+            ))}
           </motion.div>
-        ))}
-      </div>
+        ) : (
+          <motion.div
+            key="universal-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="premium-glass p-6 rounded-2xl"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                <Activity className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-white">Health Summary</h3>
+                <p className="text-slate-400 text-sm">Your upcoming appointments and vitals overview</p>
+              </div>
+            </div>
 
-      {showTreatmentPlan && assignedExercises.length > 0 && assignedTherapistName && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <motion.div
+                variants={slideUpVariant}
+                className="glass-card p-4 rounded-xl text-center"
+              >
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Calendar className="w-5 h-5 text-sky-400" />
+                  <span className="text-xs font-semibold text-slate-400 uppercase">Token</span>
+                </div>
+                <p className="text-2xl font-bold text-white mb-1">#04</p>
+                <p className="text-slate-400 text-xs">Next in queue</p>
+              </motion.div>
+
+              <motion.div
+                variants={slideUpVariant}
+                className="glass-card p-4 rounded-xl text-center"
+              >
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Clock className="w-5 h-5 text-emerald-400" />
+                  <span className="text-xs font-semibold text-slate-400 uppercase">Time</span>
+                </div>
+                <p className="text-2xl font-bold text-white mb-1">10:30 AM</p>
+                <p className="text-slate-400 text-xs">With Dr. Ahmed</p>
+              </motion.div>
+
+              <motion.div
+                variants={slideUpVariant}
+                className="glass-card p-4 rounded-xl text-center"
+              >
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <FileText className="w-5 h-5 text-purple-400" />
+                  <span className="text-xs font-semibold text-slate-400 uppercase">Status</span>
+                </div>
+                <p className="text-2xl font-bold text-white mb-1">Confirmed</p>
+                <p className="text-slate-400 text-xs">General checkup</p>
+              </motion.div>
+            </div>
+
+            <div className="mb-6">
+              <h4 className="text-sm font-semibold text-slate-300 mb-3 uppercase tracking-wider">Vitals Quick Summary</h4>
+              <div className="grid grid-cols-3 gap-3">
+                <motion.div
+                  variants={slideUpVariant}
+                  className="glass-card p-4 rounded-xl text-center"
+                >
+                  <HeartPulse className="w-6 h-6 text-rose-400 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400 mb-1">Blood Pressure</p>
+                  <p className="text-lg font-bold text-white">120/80</p>
+                  <p className="text-xs text-slate-500">mmHg</p>
+                </motion.div>
+
+                <motion.div
+                  variants={slideUpVariant}
+                  className="glass-card p-4 rounded-xl text-center"
+                >
+                  <Activity className="w-6 h-6 text-cyan-400 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400 mb-1">Heart Rate</p>
+                  <p className="text-lg font-bold text-white">72</p>
+                  <p className="text-xs text-slate-500">bpm</p>
+                </motion.div>
+
+                <motion.div
+                  variants={slideUpVariant}
+                  className="glass-card p-4 rounded-xl text-center"
+                >
+                  <ThermometerSun className="w-6 h-6 text-amber-400 mx-auto mb-2" />
+                  <p className="text-xs text-slate-400 mb-1">Temperature</p>
+                  <p className="text-lg font-bold text-white">98.6</p>
+                  <p className="text-xs text-slate-500">°F</p>
+                </motion.div>
+              </div>
+            </div>
+
+            <motion.div
+              variants={slideUpVariant}
+              className="glass-card-interactive p-4 rounded-xl flex items-center justify-between cursor-pointer hover:border-sky-500/50 transition-all"
+              onClick={onViewReports}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-white">Recent Visit / Prescription History</h4>
+                  <p className="text-slate-400 text-sm">View your past visits and prescriptions</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-slate-400" />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {showTreatmentPlan && assignedExercises.length > 0 && (assignedTherapistName || !hasTherapists) && (
         <motion.div variants={slideUpVariant} className="premium-glass p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -284,9 +409,11 @@ export default function PatientOverview({ user, patient, onUpgradeClick, isMembe
               <X className="w-4 h-4 text-slate-400" />
             </motion.button>
           </div>
-          <div className="flex items-center gap-2 mb-4 p-3 bg-sky-500/10 rounded-lg text-sky-400 font-semibold">
-            Assigned Therapist: {assignedTherapistName}
-          </div>
+          {assignedTherapistName && (
+            <div className="flex items-center gap-2 mb-4 p-3 bg-sky-500/10 rounded-lg text-sky-400 font-semibold">
+              Assigned {personnelLabel}: {assignedTherapistName}
+            </div>
+          )}
           <div className="space-y-3">
             {assignedExercises.map((ex, i) => (
               <div key={i} className="p-4 bg-white/5 rounded-xl border border-white/5">

@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, collection, onSnapshot, updateDoc, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ShieldX } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { User } from '@/types';
+import { useClinicContext } from '@/lib/clinicContext';
 import { generateToken, generateQRCode } from '@/lib/data';
 
 import LandingPage from '@/components/LandingPage';
@@ -14,8 +16,9 @@ import PatientDashboard from '@/components/PatientDashboard';
 import DoctorDashboardNew from '@/components/DoctorDashboardNew';
 import AdminDashboard from '@/components/AdminDashboard';
 import TherapistDashboard from '@/components/TherapistDashboard';
+import BookingForm from '@/components/BookingForm';
 
-type AuthView = 'landing' | 'login' | 'signup';
+type AuthView = 'landing' | 'login' | 'signup' | 'booking';
 
 interface FirestorePatient {
   id: string;
@@ -71,7 +74,10 @@ export default function Home() {
   const [patients, setPatients] = useState<FirestorePatient[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [doctors, setDoctors] = useState<DoctorData[]>([]);
+  const [bookingDoctor, setBookingDoctor] = useState<DoctorData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  const { features, clinicType, setClinicType } = useClinicContext();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -81,28 +87,29 @@ export default function Home() {
           const userData = userDoc.data();
           
            if (userData) {
-             const user: User = {
-               id: firebaseUser.uid,
-               name: userData.name,
-               email: userData.email,
-               phone: userData.phone || '',
-               role: userData.role || 'patient',
-               avatar: userData.avatar,
-               profilePicture: userData.profilePicture,
-               createdAt: userData.createdAt?.toDate() || new Date(),
-               status: userData.status,
-               assignedDoctorId: userData.assignedDoctorId,
-               assignedDoctorName: userData.assignedDoctorName,
-               isMember: userData.isMember,
-               membershipStatus: userData.membershipStatus,
-               membershipType: userData.membershipType,
-               totalFees: userData.totalFees,
-               membershipRequestDate: userData.membershipRequestDate?.toDate(),
-               submittedTrxID: userData.submittedTrxID,
-               profileCompleted: userData.profileCompleted || false,
-               doctorProfile: userData.doctorProfile,
-               patientProfile: userData.patientProfile,
-             };
+              const user: User = {
+                id: firebaseUser.uid,
+                name: userData.name,
+                email: userData.email,
+                phone: userData.phone || '',
+                role: userData.role || 'patient',
+                avatar: userData.avatar,
+                profilePicture: userData.profilePicture,
+                createdAt: userData.createdAt?.toDate() || new Date(),
+                status: userData.status,
+                assignedDoctorId: userData.assignedDoctorId,
+                assignedDoctorName: userData.assignedDoctorName,
+                isMember: userData.isMember,
+                membershipStatus: userData.membershipStatus,
+                membershipType: userData.membershipType,
+                totalFees: userData.totalFees,
+                membershipRequestDate: userData.membershipRequestDate?.toDate(),
+                submittedTrxID: userData.submittedTrxID,
+                profileCompleted: userData.profileCompleted || false,
+                doctorProfile: userData.doctorProfile,
+                patientProfile: userData.patientProfile,
+                clinicType: userData.clinicType,
+              };
              setCurrentUser(user);
            }
         } catch (err) {
@@ -317,7 +324,11 @@ export default function Home() {
 
   const handleAssignRole = async (userId: string, role: 'patient' | 'doctor' | 'therapist') => {
     try {
-      await updateDoc(doc(db, 'users', userId), { role });
+      const updateData: any = { role };
+      if (role === 'therapist') {
+        updateData.clinicType = 'physiotherapy';
+      }
+      await updateDoc(doc(db, 'users', userId), updateData);
     } catch (err) {
       console.error('Error assigning role:', err);
     }
@@ -376,22 +387,48 @@ export default function Home() {
     );
   }
 
-return (
+  const isTherapistBlocked = currentUser?.role === 'therapist' && !features.hasTherapists;
+
+  return (
     <AnimatePresence mode="wait">
-      {!currentUser ? (
+      {authView === 'booking' && bookingDoctor ? (
+        <motion.div
+          key="booking"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="min-h-screen bg-slate-950 p-4 md:p-6"
+        >
+          <div className="max-w-6xl mx-auto px-4 py-6">
+            <div className="mb-6">
+              <button
+                onClick={() => { setBookingDoctor(null); setAuthView('landing'); }}
+                className="px-4 py-2 glass-button text-sm flex items-center gap-2"
+              >
+                ← Back to Home
+              </button>
+            </div>
+            <BookingForm
+              doctor={bookingDoctor}
+              onBookingComplete={() => { setBookingDoctor(null); setAuthView('landing'); }}
+            />
+          </div>
+        </motion.div>
+      ) : !currentUser ? (
         <motion.div
           key={authView}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          {authView === 'landing' && (
-            <LandingPage
-              onLogin={() => setAuthView('login')}
-              onSignup={() => setAuthView('signup')}
-              doctors={doctors}
-            />
-          )}
+           {authView === 'landing' && (
+             <LandingPage
+               onLogin={() => setAuthView('login')}
+               onSignup={() => setAuthView('signup')}
+               onBook={(doctor) => { setBookingDoctor(doctor); setAuthView('booking'); }}
+               doctors={doctors}
+             />
+           )}
           {(authView === 'login' || authView === 'signup') && (
             <LoginPage
               onLogin={handleLogin}
@@ -399,30 +436,59 @@ return (
             />
           )}
         </motion.div>
-       ) : currentUser.role === 'admin' ? (
-           <AdminDashboard
-             users={users}
-             onAssignRole={handleAssignRole}
-             onLogout={handleLogout}
-           />
-          ) : currentUser.role === 'therapist' ? (
-            <TherapistDashboard
-              user={currentUser}
+      ) : isTherapistBlocked ? (
+        <motion.div
+          key="blocked"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="min-h-screen flex items-center justify-center p-4"
+        >
+          <div className="text-center glass-card p-8 max-w-md">
+            <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+              <ShieldX className="w-8 h-8 text-red-400" />
+            </div>
+            <h1 className="text-2xl font-bold text-white mb-4">Access Restricted</h1>
+            <p className="text-slate-400 mb-6">
+              Therapist features are not available for the current clinic type.
+              The clinic is configured for <span className="text-white font-medium">{features.personnelLabel}</span>.
+            </p>
+            <button
+              onClick={handleLogout}
+              className="glass-button px-6 py-3"
+            >
+              Sign Out
+            </button>
+          </div>
+        </motion.div>
+      ) : currentUser.role === 'admin' ? (
+            <AdminDashboard
+              users={users}
+              onAssignRole={handleAssignRole}
               onLogout={handleLogout}
+              features={features}
+              clinicType={clinicType}
             />
-          ) : currentUser.role === 'patient' ? (
-            <PatientDashboard
-              user={currentUser}
-              onLogout={handleLogout}
-            />
-            ) : (
-              <DoctorDashboardNew
-                user={currentUser}
-                patients={patients as any}
-                onUpdatePatient={handleUpdatePatient}
-                onLogout={handleLogout}
-              />
-         )}
+           ) : currentUser.role === 'therapist' ? (
+             <TherapistDashboard
+               user={currentUser}
+               onLogout={handleLogout}
+             />
+           ) : currentUser.role === 'patient' ? (
+             <PatientDashboard
+               user={currentUser}
+               onLogout={handleLogout}
+               features={features}
+             />
+             ) : (
+               <DoctorDashboardNew
+                 user={currentUser}
+                 patients={patients as any}
+                 onUpdatePatient={handleUpdatePatient}
+                 onLogout={handleLogout}
+                 features={features}
+               />
+          )}
     </AnimatePresence>
   );
 }

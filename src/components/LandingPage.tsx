@@ -33,6 +33,7 @@ interface DoctorData {
 interface LandingPageProps {
   onLogin: () => void;
   onSignup: () => void;
+  onBook?: (doctor: DoctorData) => void;
   doctors?: DoctorData[];
 }
 
@@ -533,7 +534,7 @@ function Footer() {
    );
 };
 
-export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageProps) {
+export default function LandingPage({ onLogin, onSignup, onBook, doctors }: LandingPageProps) {
   const [selectedDoctor, setSelectedDoctor] = useState<DoctorData | null>(null);
   const displayedDoctors = doctors && doctors.length > 0 ? doctors : DUMMY_DOCTORS;
 
@@ -714,7 +715,7 @@ export default function LandingPage({ onLogin, onSignup, doctors }: LandingPageP
                   whileTap={{ scale: 0.98 }}
                   onClick={() => {
                     setSelectedDoctor(null);
-                    onSignup();
+                    onBook?.(selectedDoctor);
                   }}
                   className="w-full py-4 bg-gradient-to-r from-rose-600 to-crimson-700 text-white font-bold rounded-2xl shadow-lg shadow-rose-900/30 border border-white/10 flex items-center justify-center gap-2"
                 >

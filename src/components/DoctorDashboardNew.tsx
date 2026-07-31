@@ -6,9 +6,10 @@ import {
   Users, Clock, CheckCircle, ChevronRight, X,
   FileText, UserCircle, File, Image, History,
   LogOut, Stethoscope, ClipboardList, BadgeCheck,
-  Phone, Mail, User, Menu, ChevronDown
+  Phone, Mail, User, Menu, ChevronDown, Settings, CalendarCheck, Trash2, Calendar as CalendarIcon, Plus
 } from 'lucide-react';
 import { DoctorView, PatientReport } from '@/types';
+import { ClinicFeatures } from '@/types/clinic';
 import { db } from '@/lib/firebase';
 import {
   doc,
@@ -17,7 +18,10 @@ import {
   collection,
   query,
   where,
-  serverTimestamp
+  serverTimestamp,
+  addDoc,
+  deleteDoc,
+  getDocs,
 } from 'firebase/firestore';
 import ImageUpload from './ImageUpload';
 import SmartGreeting from './SmartGreeting';
@@ -25,9 +29,11 @@ import FileViewerModal from './FileViewerModal';
 import { EXERCISES } from '@/lib/data';
 import RoleBasedQuotes from './RoleBasedQuotes';
 import CustomDropdown from './CustomDropdown';
+import { isPhysiotherapySpecialty, formatDate, formatDateShort } from '@/lib/slotEngine';
+import { getConfirmedAppointmentsByDoctor, ConfirmedAppointment } from '@/lib/appointmentState';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type SidebarView = 'waiting' | 'recent';
+type SidebarView = 'waiting' | 'recent' | 'settings' | 'queue';
 
 interface DoctorDashboardProps {
   patients: any[];
@@ -35,6 +41,7 @@ interface DoctorDashboardProps {
   user?: any;
   onLogout?: () => void;
   therapists?: any[];
+  features?: ClinicFeatures;
 }
 
 interface RecentSession {
@@ -104,7 +111,7 @@ function TimePicker({ value, onChange, placeholder }: { value: string; onChange:
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
-export default function DoctorDashboard({ user, patients, onUpdatePatient, onLogout }: DoctorDashboardProps) {
+export default function DoctorDashboard({ user, patients, onUpdatePatient, onLogout, features }: DoctorDashboardProps) {
   const [activeView, setSidebarView] = useState<SidebarView>('waiting');
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile sidebar
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
@@ -118,6 +125,13 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
   const [isCompletingSession, setIsCompletingSession] = useState(false);
   const [therapists, setTherapists] = useState<any[]>([]);
   const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
+  const [doctorLeaves, setDoctorLeaves] = useState<any[]>([]);
+  const [leaveFormData, setLeaveFormData] = useState({ startDate: '', endDate: '', reason: '' });
+   const [savingLeave, setSavingLeave] = useState(false);
+   const [liveQueue, setLiveQueue] = useState<ConfirmedAppointment[]>([]);
+
+   const hasTherapists = features?.hasTherapists ?? true;
+   const isPhysiotherapy = isPhysiotherapySpecialty(user?.doctorProfile?.specialization);
 
   // Doctor profile form
   const [doctorForm, setDoctorForm] = useState({
@@ -127,6 +141,8 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
     timingFrom:     '', // time picker value
     timingTo:       '', // time picker value
     availableDays:  (user?.doctorProfile?.availableDays as string[]) || [],
+    slotDuration:   user?.doctorProfile?.slotDuration || 25,
+    consultationFee: user?.doctorProfile?.consultationFee || 1000,
   });
 
   const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -137,11 +153,12 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
 
   // ── Fetch therapists ──────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!hasTherapists) return;
     const q = query(collection(db, 'users'), where('role', '==', 'therapist'));
     return onSnapshot(q, snap => {
       setTherapists(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
-  }, []);
+  }, [hasTherapists]);
 
   // ── Fetch recent/completed sessions ──────────────────────────────────────────
   useEffect(() => {
@@ -185,6 +202,37 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
     });
   }, [user?.id]);
 
+  // ── Fetch doctor leaves ────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!user?.id) return;
+    const q = query(
+      collection(db, 'doctorLeaves'),
+      where('doctorId', '==', user.id)
+    );
+    const unsubscribe = onSnapshot(q, snap => {
+      const leaves = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      setDoctorLeaves(leaves);
+    });
+    return () => unsubscribe();
+  }, [user?.id]);
+
+  // ── Load today's confirmed appointments from localStorage ───────────────────────
+  useEffect(() => {
+    if (!user?.id) return;
+    const today = new Date().toISOString().split('T')[0];
+    const confirmed = getConfirmedAppointmentsByDoctor(user.id)
+      .filter(a => a.date === today);
+    setLiveQueue(confirmed);
+
+    const handleStorageChange = () => {
+      const updated = getConfirmedAppointmentsByDoctor(user.id)
+        .filter(a => a.date === today);
+      setLiveQueue(updated);
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [user?.id]);
+
   // Active = only not-completed
   const activePatients = patients.filter(p =>
     p.status === 'waiting' || p.status === 'consulting' || p.status === 'assigned'
@@ -201,24 +249,40 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
   };
 
   const handleSaveExercises = async () => {
-    if (!selectedPatient?.assignedTherapistId) { alert('Please select a therapist first'); return; }
-    const t = therapists.find(t => t.id === selectedPatient.assignedTherapistId);
-    if (!t) { alert('Therapist not found.'); return; }
-    try {
-      await updateDoc(doc(db, 'users', selectedPatient.id), {
-        assignedExercises: selectedExercises,
-        assignedTherapistId: selectedPatient.assignedTherapistId,
-        assignedTherapistName: t.name,
-        status: 'under_treatment',
-        prescription: selectedPatient.prescription || '',
-        role: 'patient',
-        totalSessions: selectedPatient.totalSessions || 10,
-        lastUpdated: new Date(),
-      });
-      setSelectedPatient({ ...selectedPatient, assignedExercises: selectedExercises, status: 'under_treatment' });
-      setShowExerciseModal(false);
-      alert('Exercise plan assigned successfully!');
-    } catch (err) { console.error(err); alert('Failed.'); }
+    if (hasTherapists) {
+      if (!selectedPatient?.assignedTherapistId) { alert('Please select a therapist first'); return; }
+      const t = therapists.find(t => t.id === selectedPatient.assignedTherapistId);
+      if (!t) { alert('Therapist not found.'); return; }
+      try {
+        await updateDoc(doc(db, 'users', selectedPatient.id), {
+          assignedExercises: selectedExercises,
+          assignedTherapistId: selectedPatient.assignedTherapistId,
+          assignedTherapistName: t.name,
+          status: 'under_treatment',
+          prescription: selectedPatient.prescription || '',
+          role: 'patient',
+          totalSessions: selectedPatient.totalSessions || 10,
+          lastUpdated: new Date(),
+        });
+        setSelectedPatient({ ...selectedPatient, assignedExercises: selectedExercises, status: 'under_treatment' });
+        setShowExerciseModal(false);
+        alert('Exercise plan assigned successfully!');
+      } catch (err) { console.error(err); alert('Failed.'); }
+    } else {
+      try {
+        await updateDoc(doc(db, 'users', selectedPatient.id), {
+          assignedExercises: selectedExercises,
+          status: 'under_treatment',
+          prescription: selectedPatient.prescription || '',
+          role: 'patient',
+          totalSessions: selectedPatient.totalSessions || 10,
+          lastUpdated: new Date(),
+        });
+        setSelectedPatient({ ...selectedPatient, assignedExercises: selectedExercises, status: 'under_treatment' });
+        setShowExerciseModal(false);
+        alert('Exercise plan assigned successfully!');
+      } catch (err) { console.error(err); alert('Failed.'); }
+    }
   };
 
   // ── Profile listener ──────────────────────────────────────────────────────────
@@ -286,18 +350,51 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
       await updateDoc(doc(db, 'users', user.id), {
         profileCompleted: true,
         avatar: profileImage || user.avatar || '',
-        doctorProfile: {
+         doctorProfile: {
           specialization: doctorForm.specialization,
           education:      doctorForm.education,
           experience:     doctorForm.experience,
           timings,
           availableDays:  doctorForm.availableDays,
+          slotDuration:   doctorForm.slotDuration,
+          consultationFee: doctorForm.consultationFee,
           profilePicture: profileImage || user.avatar || '',
         },
       });
       setShowProfileModal(false);
     } catch (err) { console.error(err); alert('Failed to save profile.'); }
     setSavingProfile(false);
+  };
+
+  // ── Leave management ─────────────────────────────────────────────────────────
+  const handleAddLeave = async () => {
+    if (!user?.id || !leaveFormData.startDate || !leaveFormData.endDate) return;
+
+    setSavingLeave(true);
+    try {
+      await addDoc(collection(db, 'doctorLeaves'), {
+        doctorId: user.id,
+        startDate: leaveFormData.startDate,
+        endDate: leaveFormData.endDate,
+        reason: leaveFormData.reason || '',
+        createdAt: new Date().toISOString(),
+      });
+      setLeaveFormData({ startDate: '', endDate: '', reason: '' });
+    } catch (err) {
+      console.error('Error adding leave:', err);
+      alert('Failed to add leave.');
+    } finally {
+      setSavingLeave(false);
+    }
+  };
+
+  const handleRemoveLeave = async (leaveId: string) => {
+    if (!confirm('Remove this leave date?')) return;
+    try {
+      await deleteDoc(doc(db, 'doctorLeaves', leaveId));
+    } catch (err) {
+      console.error('Error removing leave:', err);
+    }
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -366,6 +463,45 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
           </div>
         </button>
 
+        {/* Today's Live Queue */}
+        <button
+          onClick={() => { setSidebarView('queue'); setSelectedPatient(null); setSidebarOpen(false); }}
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 ${
+            activeView === 'queue'
+              ? 'bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-lg shadow-rose-900/30'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <CalendarIcon className="w-5 h-5" />
+            <span className="text-sm font-medium">Today's Live Queue</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {liveQueue.length > 0 && (
+              <span className="w-5 h-5 rounded-full bg-rose-500/30 text-rose-300 text-[10px] font-bold flex items-center justify-center">
+                {liveQueue.length}
+              </span>
+            )}
+            {activeView === 'queue' && <ChevronRight className="w-4 h-4" />}
+          </div>
+        </button>
+
+        {/* Settings */}
+        <button
+          onClick={() => { setSidebarView('settings'); setSelectedSession(null); setSidebarOpen(false); }}
+          className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-300 ${
+            activeView === 'settings'
+              ? 'bg-gradient-to-r from-rose-600 to-rose-500 text-white shadow-lg shadow-rose-900/30'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <Settings className="w-5 h-5" />
+            <span className="text-sm font-medium">Settings & Timings</span>
+          </div>
+          {activeView === 'settings' && <ChevronRight className="w-4 h-4" />}
+        </button>
+
         {/* Complete Profile */}
         {!isProfileComplete && (
           <motion.button
@@ -432,7 +568,7 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
           <div className="text-center">
             <p className="text-white font-bold text-sm">Dr. {user?.name}</p>
             <p className="text-rose-500 text-[10px] uppercase tracking-widest font-black">
-              {activeView === 'waiting' ? 'Waiting List' : 'Recent Sessions'}
+              {activeView === 'waiting' ? 'Waiting List' : activeView === 'recent' ? 'Recent Sessions' : activeView === 'queue' ? "Today's Queue" : 'Settings'}
             </p>
           </div>
           <div className="w-9" /> {/* spacer */}
@@ -517,13 +653,15 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                           </div>
                           {/* Action buttons */}
                           <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                            <motion.button
-                              whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                              onClick={() => setShowExerciseModal(true)}
-                              className="flex-1 sm:flex-none px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-xs font-bold shadow-lg border border-white/10 uppercase tracking-wider"
-                            >
-                              Assign Exercises
-                            </motion.button>
+                            {isPhysiotherapy && (
+                              <motion.button
+                                whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                                onClick={() => setShowExerciseModal(true)}
+                                className="flex-1 sm:flex-none px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl text-xs font-bold shadow-lg border border-white/10 uppercase tracking-wider"
+                              >
+                                Assign Exercises
+                              </motion.button>
+                            )}
 
                             {/* ✅ COMPLETE SESSION — removes patient from active, moves to Recent */}
                             <motion.button
@@ -596,6 +734,64 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                     )}
                   </AnimatePresence>
                 </div>
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════
+                VIEW: TODAY'S LIVE QUEUE
+            ══════════════════════════════════════════════════════════════ */}
+            {activeView === 'queue' && (
+              <div className="space-y-6">
+                <h2 className="text-xs font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2 mb-4">
+                  <CalendarIcon className="w-4 h-4 text-rose-500" /> Today's Live Queue
+                </h2>
+
+                {liveQueue.length === 0 ? (
+                  <div className="text-center py-16 text-slate-600 border-2 border-dashed border-white/5 rounded-3xl">
+                    <CalendarIcon className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                    <p className="text-lg">No confirmed appointments for today</p>
+                    <p className="text-xs text-slate-700 mt-1">Newly approved bookings will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {liveQueue.map((appointment, idx) => (
+                      <motion.div
+                        key={appointment.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.05 }}
+                        className="p-5 glass-card border border-emerald-500/20 rounded-2xl flex items-center justify-between gap-4"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                            {appointment.patientName?.charAt(0) || '?'}
+                          </div>
+                          <div>
+                            <p className="text-white font-medium">{appointment.patientName}</p>
+                            <p className="text-slate-400 text-xs">{appointment.patientPhone}</p>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                              <span>{appointment.slot || 'N/A'}</span>
+                              <span>•</span>
+                              <span className="text-amber-400 font-bold">PKR {appointment.amount?.toLocaleString() || '1,000'}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                            appointment.status === 'confirmed'
+                              ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                              : 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+                          }`}>
+                            {appointment.status === 'confirmed' ? 'Confirmed' : appointment.status}
+                          </span>
+                          <span className="text-slate-500 text-xs font-mono bg-slate-800/50 px-2 py-1 rounded">
+                            {appointment.token}
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -721,7 +917,9 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                               <DetailRow icon={<Mail className="w-3.5 h-3.5" />} label="Email" value={selectedSession.email} />
                               <DetailRow icon={<Phone className="w-3.5 h-3.5" />} label="Phone" value={selectedSession.phone} />
                               <DetailRow icon={<Stethoscope className="w-3.5 h-3.5" />} label="Assigned Doctor" value={selectedSession.assignedDoctorName || user?.name} />
-                              <DetailRow icon={<Users className="w-3.5 h-3.5" />} label="Assigned Therapist" value={selectedSession.assignedTherapistName} />
+                              {hasTherapists && (
+                                <DetailRow icon={<Users className="w-3.5 h-3.5" />} label="Assigned Therapist" value={selectedSession.assignedTherapistName} />
+                              )}
                               <DetailRow icon={<FileText className="w-3.5 h-3.5" />} label="Condition / Complaint" value={selectedSession.medicalCondition} />
                               <DetailRow icon={<ClipboardList className="w-3.5 h-3.5" />} label="Diagnosis" value={selectedSession.diagnosis} />
                               <DetailRow icon={<ClipboardList className="w-3.5 h-3.5" />} label="Treatment / Prescription" value={selectedSession.prescription} />
@@ -730,8 +928,8 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                             </div>
                           </div>
 
-                          {/* Exercises */}
-                          {selectedSession.assignedExercises && selectedSession.assignedExercises.length > 0 && (
+                          {/* Exercises — only show for physiotherapy specialties */}
+                          {isPhysiotherapy && selectedSession.assignedExercises && selectedSession.assignedExercises.length > 0 && (
                             <div className="rounded-2xl bg-black/30 border border-white/5 overflow-hidden">
                               <div className="px-4 md:px-5 py-3 border-b border-white/5">
                                 <p className="text-[10px] uppercase tracking-widest font-black text-slate-500 flex items-center gap-2">
@@ -846,6 +1044,22 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                   )}
                 </div>
 
+                <div>
+                  <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block">Slot Duration (minutes)</label>
+                  <select
+                    value={doctorForm.slotDuration}
+                    onChange={e => setDoctorForm(p => ({ ...p, slotDuration: Number(e.target.value) }))}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-rose-500/50 transition-all [color-scheme:dark] cursor-pointer"
+                  >
+                    <option value={15}>15 min</option>
+                    <option value={20}>20 min</option>
+                    <option value={25}>25 min</option>
+                    <option value={30}>30 min</option>
+                    <option value={45}>45 min</option>
+                    <option value={60}>60 min</option>
+                  </select>
+                </div>
+
                 {/* Available Days */}
                 <div>
                   <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block">Available Days</label>
@@ -884,13 +1098,250 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
         )}
       </AnimatePresence>
 
+      {/* ══════════════════════════════════════════════════════════════
+          VIEW: SETTINGS & TIMINGS
+      ══════════════════════════════════════════════════════════════ */}
+      {activeView === 'settings' && (
+        <div className="space-y-6">
+          {/* Timings & Availability */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-card p-6"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <Settings className="w-6 h-6 text-rose-500" />
+              <h2 className="text-xl font-semibold text-white">Doctor Settings & Timings</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Specialization */}
+              <div>
+                <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block">Specialization</label>
+                <input
+                  type="text"
+                  value={doctorForm.specialization}
+                  onChange={e => setDoctorForm(p => ({ ...p, specialization: e.target.value }))}
+                  className="glass-input w-full text-sm"
+                  placeholder="e.g., Sports Rehabilitation"
+                />
+              </div>
+
+              {/* Education */}
+              <div>
+                <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block">Education</label>
+                <input
+                  type="text"
+                  value={doctorForm.education}
+                  onChange={e => setDoctorForm(p => ({ ...p, education: e.target.value }))}
+                  className="glass-input w-full text-sm"
+                  placeholder="e.g., PhD in Physical Therapy"
+                />
+              </div>
+            </div>
+
+            {/* Experience */}
+            <div className="mt-4">
+              <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block">Years of Experience</label>
+              <input
+                type="text"
+                value={doctorForm.experience}
+                onChange={e => setDoctorForm(p => ({ ...p, experience: e.target.value }))}
+                className="glass-input w-full text-sm"
+                placeholder="e.g., 15 years"
+              />
+            </div>
+
+            {/* Available Timings */}
+            <div className="mt-6">
+              <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block">Available Timings</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] text-slate-500 mb-1">From</p>
+                  <input
+                    type="time"
+                    value={doctorForm.timingFrom}
+                    onChange={e => setDoctorForm(p => ({ ...p, timingFrom: e.target.value }))}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-rose-500/50 transition-all [color-scheme:dark] cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-500 mb-1">To</p>
+                  <input
+                    type="time"
+                    value={doctorForm.timingTo}
+                    onChange={e => setDoctorForm(p => ({ ...p, timingTo: e.target.value }))}
+                    className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-rose-500/50 transition-all [color-scheme:dark] cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Slot Duration */}
+            <div className="mt-6">
+              <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block">Slot Duration (minutes)</label>
+              <select
+                value={doctorForm.slotDuration}
+                onChange={e => setDoctorForm(p => ({ ...p, slotDuration: Number(e.target.value) }))}
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-rose-500/50 transition-all [color-scheme:dark] cursor-pointer"
+              >
+                <option value={15}>15 min</option>
+                <option value={20}>20 min</option>
+                <option value={25}>25 min</option>
+                <option value={30}>30 min</option>
+                <option value={45}>45 min</option>
+                <option value={60}>60 min</option>
+              </select>
+            </div>
+
+            {/* Consultation Fee */}
+            <div className="mt-6">
+              <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block">Consultation Fee (PKR)</label>
+              <input
+                type="number"
+                value={doctorForm.consultationFee}
+                onChange={e => setDoctorForm(p => ({ ...p, consultationFee: Number(e.target.value) }))}
+                className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-rose-500/50 transition-all [color-scheme:dark]"
+                placeholder="e.g., 1000"
+              />
+            </div>
+
+            {/* Save Button */}
+            <div className="mt-6 flex justify-end">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleSaveProfile}
+                disabled={savingProfile}
+                className="px-6 py-3 bg-gradient-to-r from-rose-600 to-crimson-700 text-white font-bold rounded-xl flex items-center gap-2 disabled:opacity-60"
+              >
+                {savingProfile ? (
+                  <>
+                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+                    Saving...
+                  </>
+                ) : 'Save Settings'}
+              </motion.button>
+            </div>
+          </motion.div>
+
+          {/* Leave Management */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="glass-card p-6"
+          >
+            <div className="flex items-center gap-3 mb-6">
+              <CalendarCheck className="w-6 h-6 text-amber-400" />
+              <h2 className="text-xl font-semibold text-white">Mark Leave / Block Dates</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div>
+                <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block">Start Date</label>
+                <input
+                  type="date"
+                  value={leaveFormData.startDate}
+                  onChange={e => setLeaveFormData(p => ({ ...p, startDate: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-amber-500/50 transition-all [color-scheme:dark] cursor-pointer"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block">End Date</label>
+                <input
+                  type="date"
+                  value={leaveFormData.endDate}
+                  onChange={e => setLeaveFormData(p => ({ ...p, endDate: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-amber-500/50 transition-all [color-scheme:dark] cursor-pointer"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block">Reason (Optional)</label>
+                <input
+                  type="text"
+                  value={leaveFormData.reason}
+                  onChange={e => setLeaveFormData(p => ({ ...p, reason: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-amber-500/50 transition-all"
+                  placeholder="e.g., Medical Conference"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end mb-6">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleAddLeave}
+                disabled={savingLeave || !leaveFormData.startDate || !leaveFormData.endDate}
+                className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white font-bold rounded-xl flex items-center gap-2 disabled:opacity-60"
+              >
+                {savingLeave ? (
+                  <>
+                    <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Add Leave
+                  </>
+                )}
+              </motion.button>
+            </div>
+
+            {/* Existing Leaves */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-300 mb-3">
+                Your Blocked Dates ({doctorLeaves.length})
+              </h3>
+              {doctorLeaves.length === 0 ? (
+                <div className="text-center py-8 text-slate-600 border-2 border-dashed border-white/5 rounded-2xl">
+                  <CalendarCheck className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm">No blocked dates set</p>
+                  <p className="text-xs text-slate-700 mt-1">Add leave dates to block them from patient bookings</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {doctorLeaves.map((leave) => (
+                    <motion.div
+                      key={leave.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-4 glass-card border border-amber-500/20 rounded-xl flex items-center justify-between"
+                    >
+                      <div className="flex-1">
+                        <p className="text-white font-medium">
+                          {leave.startDate} → {leave.endDate}
+                        </p>
+                        {leave.reason && (
+                          <p className="text-slate-400 text-sm mt-1">{leave.reason}</p>
+                        )}
+                      </div>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => handleRemoveLeave(leave.id)}
+                        className="p-2 hover:bg-red-500/10 rounded-lg text-red-400 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </motion.button>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       {/* ═══ EXERCISE MODAL ═══════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {showExerciseModal && selectedPatient && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="w-full max-w-3xl bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden my-8">
+              className="w-full max-w-3xl bg-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-visible my-8">
               <div className="p-4 md:p-6 border-b border-white/5 flex justify-between items-center">
                 <div>
                   <h2 className="text-lg md:text-xl font-bold text-white">Prescribe Exercises</h2>
@@ -901,20 +1352,29 @@ export default function DoctorDashboard({ user, patients, onUpdatePatient, onLog
                 </button>
               </div>
 
-              <div className="p-4 md:p-6 border-b border-white/5">
-                <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-3 block">Assign to Therapist</label>
-                <CustomDropdown
-                  options={therapists.map(t => ({ id: t.id, name: t.name, avatar: t.profilePicture || t.avatar }))}
-                  value={selectedPatient?.assignedTherapistId || ''}
-                  onChange={id => {
-                    const t = therapists.find(t => t.id === id);
-                    setSelectedPatient({ ...selectedPatient, assignedTherapistId: id, assignedTherapistName: t?.name || '' });
-                  }}
-                  placeholder="Select a therapist..."
-                />
+              <div className="p-4 md:p-6 border-b border-white/5 overflow-visible">
+                {hasTherapists ? (
+                  <>
+                    <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-3 block">Assign to Therapist</label>
+                    <CustomDropdown
+                      options={therapists.map(t => ({ id: t.id, name: t.name, avatar: t.profilePicture || t.avatar }))}
+                      value={selectedPatient?.assignedTherapistId || ''}
+                      onChange={id => {
+                        const t = therapists.find(t => t.id === id);
+                        setSelectedPatient({ ...selectedPatient, assignedTherapistId: id, assignedTherapistName: t?.name || '' });
+                      }}
+                      placeholder="Select a therapist..."
+                    />
+                  </>
+                ) : (
+                  <div className="flex items-center gap-3 text-slate-500">
+                    <Users className="w-4 h-4" />
+                    <span className="text-sm">Therapist assignment not available for this clinic type</span>
+                  </div>
+                )}
               </div>
 
-              <div className="p-4 md:p-6 border-b border-white/5">
+              <div className="p-4 md:p-6 border-b border-white/5 overflow-visible">
                 <label className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-400 mb-2 block">Clinical Notes / Prescription</label>
                 <textarea value={selectedPatient?.prescription || ''}
                   onChange={e => setSelectedPatient({ ...selectedPatient, prescription: e.target.value })}
